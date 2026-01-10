@@ -2,13 +2,19 @@
 # Configuration visuelle du portail captif
 # Modifier ces valeurs pour personnaliser l'apparence
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 
 class ThemeSettings(BaseSettings):
     """Configuration du thème du portail."""
-    
+
+    model_config = SettingsConfigDict(
+        env_prefix="THEME_",
+        env_file=".env",
+        extra="ignore"
+    )
+
     # Identité
     company_name: str = "Université du Bénin"
     portal_title: str = "Portail WiFi"
@@ -66,10 +72,6 @@ class ThemeSettings(BaseSettings):
     
     # Langue
     lang: str = "fr"
-    
-    class Config:
-        env_prefix = "THEME_"
-        env_file = ".env"
 
 
 theme = ThemeSettings()

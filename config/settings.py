@@ -1,8 +1,14 @@
 # config/settings.py
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+
     # Application
     app_name: str = "Captive Portal SSO"
     app_host: str = "0.0.0.0"
@@ -69,9 +75,6 @@ class Settings(BaseSettings):
     # Keycloak Admin (pour sync sessions)
     keycloak_admin_client_id: str = "admin-cli"
     keycloak_admin_client_secret: str = "admin-secret"
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+
 
 settings = Settings()

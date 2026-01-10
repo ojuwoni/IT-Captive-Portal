@@ -7,7 +7,7 @@ services:
     container_name: captive-portal
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "0.0.0.0:8000:8000"
     environment:
       - KEYCLOAK_URL=https://keycloak.university.edu
       - KEYCLOAK_REALM=university
