@@ -63,7 +63,7 @@ Ce projet supporte **3 méthodes** selon votre infrastructure :
 
 ---
 
-### Méthode 1 : pfSense API (RECOMMANDÉE)
+### Méthode 1 : pfSense API 
 
 **Principe :** pfSense gère l'autorisation via un **Alias** (liste de MACs). Le portail captif met à jour cet Alias via l'**API pfSense** après authentification Keycloak.
 
