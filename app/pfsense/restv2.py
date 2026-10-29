@@ -3,13 +3,15 @@
 Auth : header X-API-Key. Base URL AVEC le port de l'interface web
 (ex. https://10.24.112.34:10443) — relevé A1 du 28/10.
 
-NOTE A1 : les chemins exacts ci-dessous suivent la documentation publique
-du package (Swagger integre : System -> REST API -> Documentation). Les
-relevés T4 du test A1 confirmeront ou ajusteront :
-  - l'existence d'un endpoint UNITAIRE d'ajout/retrait d'adresse d'alias
-    (sinon : lecture + PATCH du tableau complet, sous verrou campus) ;
-  - la forme exacte de la reponse de /diagnostics/arp_table.
-Tout ajustement se fait dans CE fichier uniquement.
+Chemins VERIFIES contre l'OpenAPI officielle du package (pfrest.org,
+api-docs/openapi.json, 29/10/2026) :
+  - GET  /api/v2/status/system          (sante — PAS /system/status)
+  - GET  /api/v2/firewall/aliases       (liste, champ address = tableau)
+  - PATCH /api/v2/firewall/alias        (par id — pas d'endpoint unitaire
+    d'adresse : lecture + PATCH sous verrou campus, assume)
+  - POST /api/v2/firewall/apply
+  - GET  /api/v2/diagnostics/arp_table  (cles ip_address / mac_address)
+Reste a confirmer sur le pfSense reel (T4) : codes de reponse et latences.
 """
 from __future__ import annotations
 
@@ -106,7 +108,7 @@ class RestV2Client(PfSenseClient):
     async def ping(self) -> bool:
         try:
             async with self._client() as client:
-                self._data(await client.get("/api/v2/system/status"))
+                self._data(await client.get("/api/v2/status/system"))
             return True
         except Exception:
             return False
