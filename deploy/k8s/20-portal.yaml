@@ -8,9 +8,10 @@ spec:
     metadata: { labels: { app: portal } }
     spec:
       securityContext: { runAsNonRoot: true, runAsUser: 10001 }
+      imagePullSecrets: [{ name: regcred }]
       containers:
         - name: portal
-          image: registry.idadu.tech/captive-portal:v2
+          image: registre.rber.bj/rber/captive-portal:v2
           ports: [{ containerPort: 8000 }]
           env:
             - { name: PUBLIC_BASE_URL, value: "https://portal.rber.bj" }

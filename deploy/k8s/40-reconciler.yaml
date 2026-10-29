@@ -11,9 +11,10 @@ spec:
         spec:
           restartPolicy: Never
           securityContext: { runAsNonRoot: true, runAsUser: 10001 }
+          imagePullSecrets: [{ name: regcred }]
           containers:
             - name: reconciler
-              image: registry.idadu.tech/captive-portal:v2
+              image: registre.rber.bj/rber/captive-portal:v2
               command: ["python", "-m", "app.reconciler", "--once"]
               env:
                 - { name: REDIS_URL, value: "redis://redis-svc:6379/0" }

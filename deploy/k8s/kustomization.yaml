@@ -1,0 +1,15 @@
+# Point d'entree GitOps (ArgoCD surveille ce dossier).
+# Le champ newTag est mis a jour automatiquement par la CI a chaque build :
+# ne pas le modifier a la main, sauf rollback volontaire (voir docs/CICD.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-namespace.yaml
+  - 10-redis.yaml
+  - 20-portal.yaml
+  - 30-ingress.yaml
+  - 40-reconciler.yaml
+  - 50-networkpolicy.yaml
+images:
+  - name: registre.rber.bj/rber/captive-portal
+    newTag: v2

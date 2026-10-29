@@ -56,7 +56,7 @@ pytest
 
 ## Production (RKE2)
 
-1. Construire et pousser l'image : `registry.idadu.tech/captive-portal:v2`
+1. Construire et pousser l'image : `registre.rber.bj/rber/captive-portal:v2`
 2. Créer les Secrets : `portal-secret-key`, `keycloak-client`,
    `keycloak-reconciler`, et le Secret unique `pfsense-keys`
    (une entrée par site — voir docs/CONFIGURATION.md)
