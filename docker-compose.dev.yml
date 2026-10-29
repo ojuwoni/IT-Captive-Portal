@@ -1,0 +1,17 @@
+# DEVELOPPEMENT UNIQUEMENT — la production est sur Kubernetes RKE2 (deploy/k8s)
+services:
+  portal:
+    build: .
+    ports: ["8000:8000"]
+    environment:
+      PORTAL_PFSENSE_MODE: mock          # pfSense simule en memoire
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-only-change-me
+      DEBUG: "true"
+      ROUTING_PATH: config/routing.json
+    volumes:
+      - ./config:/opt/captive-portal/config:ro
+      - ./themes:/opt/captive-portal/themes:ro   # edition de themes a chaud
+    depends_on: [redis]
+  redis:
+    image: redis:7-alpine

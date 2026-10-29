@@ -1,32 +1,23 @@
-# Dockerfile
-FROM python:3.11-slim
+# Portail Captif SSO RBER v2 — image non-root, sans outils reseau locaux
+# (le portail pilote les pfSense par API HTTPS, jamais le reseau local)
+FROM python:3.12-slim
 
 WORKDIR /opt/captive-portal
 
-# Dépendances système
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    nftables \
-    iproute2 \
-    iputils-ping \
-    && rm -rf /var/lib/apt/lists/*
-
-# Dépendances Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Code application
-COPY . .
+COPY app ./app
+COPY templates ./templates
+COPY themes ./themes
+COPY static ./static
 
-# Port
+# Compatible PodSecurity "restricted"
+RUN useradd --uid 10001 --no-create-home portal
+USER 10001
+
 EXPOSE 8000
-
-# Utilisateur non-root (optionnel, désactiver si nftables nécessite root)
-# RUN useradd -m portal
-# USER portal
-
-# Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-    CMD python -c "import httpx; httpx.get('http://localhost:8000/health')" || exit 1
+  CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health')" || exit 1
 
-# Démarrage
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

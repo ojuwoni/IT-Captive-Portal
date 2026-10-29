@@ -1,0 +1,6 @@
+{
+  "name": "UNSTIM",
+  "portal_title": "WiFi UNSTIM",
+  "colors": { "primary": "#b03a2e", "primary_hover": "#8e2b22",
+              "background_start": "#58211a", "background_end": "#b03a2e" }
+}

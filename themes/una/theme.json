@@ -1,0 +1,6 @@
+{
+  "name": "Universite Nationale d'Agriculture",
+  "portal_title": "WiFi UNA",
+  "colors": { "primary": "#2f7d32", "primary_hover": "#1b5e20",
+              "background_start": "#143a16", "background_end": "#2f7d32" }
+}

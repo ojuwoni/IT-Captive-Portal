@@ -1,0 +1,13 @@
+{
+  "uac":       { "site": "UAC", "universite": "Universite d'Abomey-Calavi", "subnet": "10.24.0.0/16", "pfsense_url": "https://10.24.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-uac", "theme": "uac" },
+  "fss":       { "site": "FSS", "universite": "Universite d'Abomey-Calavi", "subnet": "10.17.0.0/16", "pfsense_url": "https://10.17.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-fss", "theme": "uac" },
+  "eneam":     { "site": "ENEAM", "universite": "Universite d'Abomey-Calavi", "subnet": "10.18.0.0/16", "pfsense_url": "https://10.18.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-eneam", "theme": "uac" },
+  "ens_porto": { "site": "ENS Porto-Novo", "universite": "Universite d'Abomey-Calavi", "subnet": "10.19.0.0/16", "pfsense_url": "https://10.19.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-ens-porto", "theme": "uac" },
+  "imsp":      { "site": "IMSP", "universite": "Universite d'Abomey-Calavi", "subnet": "10.16.0.0/16", "pfsense_url": "https://10.16.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-imsp", "theme": "uac" },
+  "una":       { "site": "UNA", "universite": "Universite Nationale d'Agriculture", "subnet": "10.20.0.0/16", "pfsense_url": "https://10.20.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-una", "theme": "una" },
+  "unstim":    { "site": "UNSTIM", "universite": "UNSTIM", "subnet": "10.21.0.0/16", "pfsense_url": "https://10.21.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-unstim", "theme": "unstim" },
+  "ensbba":    { "site": "ENSBBA", "universite": "UNSTIM", "subnet": "10.22.0.0/16", "pfsense_url": "https://10.22.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-ensbba", "theme": "unstim" },
+  "ens_nati":  { "site": "ENS Natitingou", "universite": "UNSTIM", "subnet": "10.23.0.0/16", "pfsense_url": "https://10.23.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-ens-nati", "theme": "unstim" },
+  "insti":     { "site": "INSTI Lokossa", "universite": "UNSTIM", "subnet": "10.26.0.0/16", "pfsense_url": "https://10.26.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-insti", "theme": "unstim" },
+  "up":        { "site": "UP Parakou", "universite": "Universite de Parakou", "subnet": "10.25.0.0/16", "pfsense_url": "https://10.25.112.34:10443", "pfsense_alias": "authorized_clients", "api_key_secret": "pfsense-key-up", "theme": "up" }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Universite d'Abomey-Calavi",
+  "portal_title": "WiFi UAC",
+  "colors": { "primary": "#0d4f8b", "primary_hover": "#0a3d6d",
+              "background_start": "#0d2b4e", "background_end": "#0d4f8b" }
+}

@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: reconciler, namespace: captive-portal }
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 240
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext: { runAsNonRoot: true, runAsUser: 10001 }
+          containers:
+            - name: reconciler
+              image: registry.idadu.tech/captive-portal:v2
+              command: ["python", "-m", "app.reconciler", "--once"]
+              env:
+                - { name: REDIS_URL, value: "redis://redis-svc:6379/0" }
+                - { name: ROUTING_PATH, value: "/opt/captive-portal/config/routing.json" }
+                - { name: SECRETS_DIR, value: "/opt/captive-portal/secrets" }
+                - { name: KEYCLOAK_ADMIN_CLIENT_SECRET_FILE, value: "/opt/captive-portal/kc/admin-secret" }
+                - { name: SECRET_KEY, value: "unused-for-reconciler" }
+              volumeMounts:
+                - { name: routing, mountPath: /opt/captive-portal/config, readOnly: true }
+                - { name: pfsense-keys, mountPath: /opt/captive-portal/secrets, readOnly: true }
+                - { name: kc, mountPath: /opt/captive-portal/kc, readOnly: true }
+          volumes:
+            - name: routing
+              configMap: { name: campus-routing }
+            - name: kc
+              secret: { secretName: keycloak-reconciler }
+            - name: pfsense-keys
+              projected:
+                sources:
+                  - secret: { name: pfsense-key-uac, optional: true }
+                  - secret: { name: pfsense-key-up, optional: true }
+                  # ... completer avec les 11 secrets, comme 20-portal.yaml

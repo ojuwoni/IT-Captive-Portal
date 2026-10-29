@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Choisissez votre campus</h1>
+<p class="sub">Votre campus n'a pas pu etre determine automatiquement.</p>
+<ul class="campus">
+{% for c in campuses %}<li><a href="/?campus={{ c.id }}">{{ c.site }} — {{ c.universite }}</a></li>{% endfor %}
+</ul>
+<p class="meta">Adresse : {{ client_ip }}</p>
+{% endblock %}

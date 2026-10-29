@@ -1,0 +1,35 @@
+# Ingress principal : portal.rber.bj (TLS termine ici — SNI passthrough en amont)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portal-ingress
+  namespace: captive-portal
+  annotations:
+    kubernetes.io/ingress.class: haproxy
+spec:
+  rules:
+    - host: portal.rber.bj
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: portal-svc, port: { number: 8000 } } }
+  tls:
+    - hosts: [portal.rber.bj]
+      secretName: rber-tls-portal
+---
+# Rattrape-tout : le trafic intercepte par les pfSense arrive avec le Host
+# d'origine du client (ex. neverssl.com). Il doit atteindre le portail, qui
+# repond 302 vers portal.rber.bj (deduction du campus par l'IP source).
+# NOTE : necessite que ce backend par defaut soit accepte sur l'ingress —
+# a valider avec l'equipe infra (sinon : regle equivalente cote HAProxy).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portal-catchall
+  namespace: captive-portal
+  annotations:
+    kubernetes.io/ingress.class: haproxy
+spec:
+  defaultBackend:
+    service: { name: portal-svc, port: { number: 8000 } }

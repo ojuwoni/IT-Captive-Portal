@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: portal, namespace: captive-portal }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: portal } }
+  template:
+    metadata: { labels: { app: portal } }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 10001 }
+      containers:
+        - name: portal
+          image: registry.idadu.tech/captive-portal:v2
+          ports: [{ containerPort: 8000 }]
+          env:
+            - { name: PUBLIC_BASE_URL, value: "https://portal.rber.bj" }
+            - { name: REDIS_URL, value: "redis://redis-svc:6379/0" }
+            - { name: ROUTING_PATH, value: "/opt/captive-portal/config/routing.json" }
+            - { name: SECRETS_DIR, value: "/opt/captive-portal/secrets" }
+            - { name: KEYCLOAK_CLIENT_SECRET_FILE, value: "/opt/captive-portal/kc/client-secret" }
+            - { name: SECRET_KEY, valueFrom: { secretKeyRef: { name: portal-secret-key, key: secret-key } } }
+            # TRUSTED_PROXIES : adapter au CIDR des pods de l'ingress
+            - { name: TRUSTED_PROXIES, value: "10.42.0.0/16,127.0.0.1/32" }
+          volumeMounts:
+            - { name: routing, mountPath: /opt/captive-portal/config, readOnly: true }
+            - { name: pfsense-keys, mountPath: /opt/captive-portal/secrets, readOnly: true }
+            - { name: kc, mountPath: /opt/captive-portal/kc, readOnly: true }
+            - { name: themes, mountPath: /opt/captive-portal/themes, readOnly: true }
+          readinessProbe: { httpGet: { path: /health, port: 8000 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health, port: 8000 }, initialDelaySeconds: 10, periodSeconds: 20 }
+          resources:
+            requests: { memory: 256Mi, cpu: 250m }
+            limits: { memory: 512Mi, cpu: 500m }
+      volumes:
+        - name: routing
+          configMap: { name: campus-routing }
+        - name: themes
+          configMap: { name: portal-themes, optional: true }
+        - name: kc
+          secret: { secretName: keycloak-client }
+        - name: pfsense-keys
+          projected:
+            sources:
+              - secret: { name: pfsense-key-uac, optional: true }
+              - secret: { name: pfsense-key-fss, optional: true }
+              - secret: { name: pfsense-key-eneam, optional: true }
+              - secret: { name: pfsense-key-ens-porto, optional: true }
+              - secret: { name: pfsense-key-imsp, optional: true }
+              - secret: { name: pfsense-key-una, optional: true }
+              - secret: { name: pfsense-key-unstim, optional: true }
+              - secret: { name: pfsense-key-ensbba, optional: true }
+              - secret: { name: pfsense-key-ens-nati, optional: true }
+              - secret: { name: pfsense-key-insti, optional: true }
+              - secret: { name: pfsense-key-up, optional: true }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: portal-svc, namespace: captive-portal }
+spec:
+  selector: { app: portal }
+  ports: [{ port: 8000, targetPort: 8000 }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: portal-hpa, namespace: captive-portal }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: portal }
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
