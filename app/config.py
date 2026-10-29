@@ -38,10 +38,13 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # Sessions / autorisations
-    session_ttl: int = 28800          # 8 h
+    session_ttl: int = 28800          # duree d'autorisation (s) — 8 h
     campus_lock_ttl_ms: int = 5000    # verrou d'ecriture d'alias par campus
+    campus_lock_retry_ms: int = 50    # attente entre deux essais de verrou
     arp_cache_ttl: int = 45           # cache des lectures ARP (secondes)
+    rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 20   # /login et /callback, par IP
+    keycloak_admin_page_size: int = 100  # pagination des sessions (reconciler)
 
     # Fichiers / repertoires
     routing_path: str = "config/routing.json"
@@ -49,6 +52,9 @@ class Settings(BaseSettings):
     themes_dir: str = "themes"
     templates_dir: str = "templates"
     static_dir: str = "static"
+
+    # pfSense : "restv2" (production) ou "mock" (developpement sans firewall)
+    pfsense_mode: str = "restv2"
 
     # Reseau
     trusted_proxies: str = "127.0.0.1/32,10.42.0.0/16"  # ingress RKE2 par defaut

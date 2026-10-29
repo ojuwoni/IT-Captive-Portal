@@ -13,10 +13,10 @@ import httpx
 
 
 class KeycloakAdmin:
-    PAGE = 100
-
     def __init__(self, base_url: str, realm: str, client_id: str,
-                 client_secret: str, timeout: float = 15.0):
+                 client_secret: str, timeout: float = 15.0,
+                 page_size: int = 100):
+        self.PAGE = page_size
         self._base = base_url.rstrip("/")
         self._realm = realm
         self._client_id = client_id

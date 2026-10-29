@@ -4,7 +4,7 @@ services:
     build: .
     ports: ["8000:8000"]
     environment:
-      PORTAL_PFSENSE_MODE: mock          # pfSense simule en memoire
+      PFSENSE_MODE: mock                   # pfSense simule en memoire
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev-only-change-me
       DEBUG: "true"

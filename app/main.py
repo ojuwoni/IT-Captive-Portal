@@ -50,9 +50,8 @@ def _api_key(campus: CampusConfig) -> str:
 
 
 def make_client(campus: CampusConfig):
-    """Fabrique du client pfSense. PORTAL_PFSENSE_MODE=mock pour le dev."""
-    import os
-    if os.environ.get("PORTAL_PFSENSE_MODE") == "mock":
+    """Fabrique du client pfSense. PFSENSE_MODE=mock pour le dev."""
+    if settings.pfsense_mode == "mock":
         return _mock_clients.setdefault(campus.id, MockPfSenseClient())
     verify: bool | str = settings.pfsense_ca_bundle or settings.pfsense_verify_tls
     return RestV2Client(
@@ -64,7 +63,8 @@ def make_client(campus: CampusConfig):
 
 redis = aioredis.from_url(settings.redis_url, decode_responses=True)
 authz = AuthorizationService(redis, settings, make_client)
-limiter = RateLimiter(redis, settings.rate_limit_per_minute)
+limiter = RateLimiter(redis, settings.rate_limit_per_minute,
+                      settings.rate_limit_enabled)
 
 oauth = OAuth()
 oauth.register(

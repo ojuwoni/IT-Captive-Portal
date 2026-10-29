@@ -56,10 +56,11 @@ class SessionStore:
 class CampusLock:
     """Verrou Redis par campus pour serialiser les ecritures d'alias (M1)."""
 
-    def __init__(self, redis, campus_id: str, ttl_ms: int):
+    def __init__(self, redis, campus_id: str, ttl_ms: int, retry_ms: int = 50):
         self._r = redis
         self._key = f"{LOCK_PREFIX}{campus_id}"
         self._ttl_ms = ttl_ms
+        self._retry_ms = retry_ms
         self._token = uuid.uuid4().hex
 
     async def __aenter__(self):
@@ -70,7 +71,7 @@ class CampusLock:
             if time.monotonic() > deadline:
                 raise TimeoutError(f"verrou campus indisponible : {self._key}")
             import asyncio
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(self._retry_ms / 1000)
 
     async def __aexit__(self, *exc):
         # liberation uniquement si on detient encore le verrou
@@ -97,11 +98,14 @@ class ArpCache:
 class RateLimiter:
     """Compteur par IP et par minute, pour /login et /callback."""
 
-    def __init__(self, redis, per_minute: int):
+    def __init__(self, redis, per_minute: int, enabled: bool = True):
         self._r = redis
         self._limit = per_minute
+        self._enabled = enabled
 
     async def allow(self, ip: str) -> bool:
+        if not self._enabled:
+            return True
         key = f"{RATE_PREFIX}{ip}:{int(time.time() // 60)}"
         count = await self._r.incr(key)
         if count == 1:

@@ -35,6 +35,7 @@ app/            application FastAPI
   reconciler.py réconciliation alias-first (CronJob */5 min)
 templates/      gabarits de base (surchargables par thème)
 themes/         personnalisation design — voir docs/THEMING.md
+docs/           THEMING.md (design) · CONFIGURATION.md (tous les parametres)
 config/         routing.example.json (ConfigMap en production)
 deploy/k8s/     manifests RKE2 (namespace, portal, redis, ingress, cronjob)
 tests/          pytest (15 tests, pfSense mocké, Redis simulé)
@@ -57,7 +58,8 @@ pytest
 
 1. Construire et pousser l'image : `registry.idadu.tech/captive-portal:v2`
 2. Créer les Secrets : `portal-secret-key`, `keycloak-client`,
-   `keycloak-reconciler`, et un `pfsense-key-<campus>` par site
+   `keycloak-reconciler`, et le Secret unique `pfsense-keys`
+   (une entrée par site — voir docs/CONFIGURATION.md)
 3. Créer la ConfigMap `campus-routing` à partir de `config/routing.json`
    (subnets réels confirmés site par site)
 4. `kubectl apply -f deploy/k8s/`

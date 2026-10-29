@@ -68,7 +68,8 @@ async def run_once() -> None:
     if admin_secret:
         try:
             admin = KeycloakAdmin(settings.keycloak_url, settings.keycloak_realm,
-                                  settings.keycloak_admin_client_id, admin_secret)
+                                  settings.keycloak_admin_client_id, admin_secret,
+                                  page_size=settings.keycloak_admin_page_size)
             kc_active = await admin.active_usernames(settings.keycloak_client_id)
         except Exception as exc:
             # Keycloak injoignable : on ne revoque PAS en masse (prudence),

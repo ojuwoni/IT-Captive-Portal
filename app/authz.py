@@ -55,7 +55,8 @@ class AuthorizationService:
         mac = await self.mac_for(campus, ip)
         client = self.client_for(campus)
         async with CampusLock(self._redis, campus.id,
-                              self._settings.campus_lock_ttl_ms):
+                              self._settings.campus_lock_ttl_ms,
+                              self._settings.campus_lock_retry_ms):
             await client.add_ip(ip)
             await client.apply()
         session = {"user": username, "email": email, "mac": mac,
@@ -69,7 +70,8 @@ class AuthorizationService:
                      reason: str = "logout") -> None:
         client = self.client_for(campus)
         async with CampusLock(self._redis, campus.id,
-                              self._settings.campus_lock_ttl_ms):
+                              self._settings.campus_lock_ttl_ms,
+                              self._settings.campus_lock_retry_ms):
             await client.remove_ip(ip)
             await client.apply()
         session = await self.store.get(campus.id, ip)

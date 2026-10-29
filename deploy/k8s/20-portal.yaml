@@ -39,19 +39,12 @@ spec:
         - name: kc
           secret: { secretName: keycloak-client }
         - name: pfsense-keys
-          projected:
-            sources:
-              - secret: { name: pfsense-key-uac, optional: true }
-              - secret: { name: pfsense-key-fss, optional: true }
-              - secret: { name: pfsense-key-eneam, optional: true }
-              - secret: { name: pfsense-key-ens-porto, optional: true }
-              - secret: { name: pfsense-key-imsp, optional: true }
-              - secret: { name: pfsense-key-una, optional: true }
-              - secret: { name: pfsense-key-unstim, optional: true }
-              - secret: { name: pfsense-key-ensbba, optional: true }
-              - secret: { name: pfsense-key-ens-nati, optional: true }
-              - secret: { name: pfsense-key-insti, optional: true }
-              - secret: { name: pfsense-key-up, optional: true }
+          # UN SEUL Secret pour tous les campus : une entree par site,
+          # nommee comme le champ api_key_secret de routing.json.
+          # Ajouter un site = ajouter une entree a ce Secret, rien d'autre :
+          #   kubectl -n captive-portal patch secret pfsense-keys \
+          #     -p '{"stringData":{"pfsense-key-nouveau":"<CLE>"}}'
+          secret: { name: pfsense-keys }
 ---
 apiVersion: v1
 kind: Service

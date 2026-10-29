@@ -31,8 +31,4 @@ spec:
             - name: kc
               secret: { secretName: keycloak-reconciler }
             - name: pfsense-keys
-              projected:
-                sources:
-                  - secret: { name: pfsense-key-uac, optional: true }
-                  - secret: { name: pfsense-key-up, optional: true }
-                  # ... completer avec les 11 secrets, comme 20-portal.yaml
+              secret: { name: pfsense-keys }  # meme Secret unique que le portail
