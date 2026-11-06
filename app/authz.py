@@ -40,6 +40,8 @@ class AuthorizationService:
 
     async def mac_for(self, campus: CampusConfig, ip: str,
                       refresh: bool = False) -> str | None:
+        if campus.presence != "pfsense_arp":
+            return None  # reseau route : la MAC n'est pas visible d'ici
         table = None if refresh else await self._arp.get(campus.id)
         if table is None:
             table = await self.client_for(campus).get_arp_table()

@@ -85,3 +85,42 @@ async def test_retour_du_client_remet_le_compteur_a_zero(redis, settings, routin
         result = await reconcile_campus(svc, redis, campus,
                                         kc_active={"etudiant1"})
     assert client.alias == {"10.24.1.1"}            # compteur reparti de zero
+
+
+@pytest.mark.asyncio
+async def test_reseau_route_pas_de_revocation_massive(redis, settings, routing, tmp_path):
+    # garde-fou : la table ARP ne contient AUCUNE IP autorisee (core switch
+    # L3 entre les clients et le pfSense) -> aucun controle de presence,
+    # surtout pas de revocation pour inactivite
+    campus = routing.get("uac")
+    client = MockPfSenseClient(arp={"10.24.0.254": "CC:CC:CC:CC:CC:01"})  # switch
+    svc = AuthorizationService(redis, settings, lambda c: client)
+    await svc.store.save("uac", "10.24.1.1", {"user": "etudiant1", "mac": None})
+    client.alias.add("10.24.1.1")
+
+    for _ in range(settings.idle_grace_cycles + 2):
+        result = await reconcile_campus(svc, redis, campus,
+                                        kc_active={"etudiant1"})
+        assert result["idle_removed"] == 0
+        assert result["ip_reassigned_removed"] == 0
+    assert client.alias == {"10.24.1.1"}
+
+
+@pytest.mark.asyncio
+async def test_presence_none_desactive_les_controles(redis, settings, tmp_path):
+    import json as _json
+    from app.config import CampusRouting
+    path = tmp_path / "r.json"
+    path.write_text(_json.dumps({"uac": {
+        "site": "UAC", "universite": "UAC", "subnet": "10.24.0.0/16",
+        "pfsense_url": "https://x:10443", "pfsense_alias": "a",
+        "api_key_secret": "k", "theme": "uac", "presence": "none"}}))
+    routing2 = CampusRouting(str(path))
+    campus = routing2.get("uac")
+    client = MockPfSenseClient(arp={})
+    svc = AuthorizationService(redis, settings, lambda c: client)
+    session = await svc.authorize(campus, "10.24.1.1", "etudiant1")
+    assert session["mac"] is None          # pas d'appel ARP en mode none
+    result = await reconcile_campus(svc, redis, campus, kc_active={"etudiant1"})
+    assert result["idle_removed"] == 0
+    assert client.alias == {"10.24.1.1"}

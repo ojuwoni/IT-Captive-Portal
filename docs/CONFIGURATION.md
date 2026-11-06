@@ -66,6 +66,13 @@ l'environnement, un fichier `.env` en dev, ou les manifests K8s.
 Une entrée par campus ; le portail la **recharge automatiquement** quand le
 fichier change (mise à jour de la ConfigMap, sans redéploiement) :
 
+Champ `presence` (optionnel, défaut `pfsense_arp`) : source de visibilité
+IP↔MAC du site. `pfsense_arp` si les clients sont dans le même réseau L2 que
+le pfSense (les MAC apparaissent dans sa table ARP) ; `none` si un équipement
+route entre les clients et le pfSense (core switch L3) — les contrôles MAC et
+inactivité sont alors désactivés pour ce site, l'autorisation par IP et le TTL
+restent entiers.
+
 ```json
 "nouveau": {
   "site": "Nom affiché",

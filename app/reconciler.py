@@ -39,8 +39,19 @@ async def reconcile_campus(authz: AuthorizationService, redis,
     client = authz.client_for(campus)
     alias_ips = await client.get_alias_ips()
     sessions = await authz.store.all_for_campus(campus.id)
-    arp = await client.get_arp_table() if (
+    presence_ok = campus.presence == "pfsense_arp"
+    arp = await client.get_arp_table() if presence_ok and (
         settings.mac_check_enabled or settings.idle_grace_cycles > 0) else {}
+    # Garde-fou topologie : si AUCUNE IP autorisee n'apparait dans l'ARP
+    # alors que des sessions existent, la table ne voit pas ce reseau
+    # (routage intermediaire) -> on n'applique pas les controles de
+    # presence ce cycle, et on le signale au lieu de revoquer en masse.
+    if presence_ok and arp and alias_ips and sessions \
+            and not any(ip in arp for ip in alias_ips):
+        jlog("presence_mismatch", campus=campus.id,
+             hint="aucune IP autorisee dans l'ARP : reseau route ? "
+                  "passer presence='none' pour ce campus dans routing.json")
+        presence_ok = False
     removed = {"orphan": [], "kc_expired": [], "ip_reassigned": [], "idle": []}
 
     async def _absence(ip: str) -> int:
@@ -62,7 +73,8 @@ async def reconcile_campus(authz: AuthorizationService, redis,
             elif settings.mac_check_enabled and session.get("mac")                     and arp.get(ip) and arp[ip] != session["mac"]:
                 # bail DHCP recycle : l'IP appartient a un autre appareil
                 reason = "ip_reassigned"
-            elif settings.idle_grace_cycles > 0 and ip not in arp:
+            elif presence_ok and settings.idle_grace_cycles > 0 \
+                    and ip not in arp:
                 if await _absence(ip) >= settings.idle_grace_cycles:
                     reason = "idle"
             else:

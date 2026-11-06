@@ -107,6 +107,11 @@ class CampusConfig:
     pfsense_alias: str
     api_key_secret: str
     theme: str
+    # Source de presence IP<->MAC du site :
+    #  "pfsense_arp" : reseau plat, les MAC clients sont dans l'ARP du pfSense
+    #  "none"        : reseau route (core switch L3 entre clients et pfSense),
+    #                  aucune MAC visible -> controles MAC/inactivite desactives
+    presence: str = "pfsense_arp"
 
     def network(self) -> ipaddress.IPv4Network:
         return ipaddress.ip_network(self.subnet, strict=False)
