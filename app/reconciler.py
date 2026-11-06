@@ -48,8 +48,8 @@ async def reconcile_campus(authz: AuthorizationService, redis,
                 await authz.store.delete(campus.id, ip)
                 removed_expired.append(ip)
                 changed = True
-        if changed:
-            await client.apply()
+    if changed:
+        await client.apply()
 
     result = {"campus": campus.id, "alias_count": len(alias_ips),
               "orphans_removed": len(removed_orphans),

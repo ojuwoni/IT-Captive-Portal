@@ -7,15 +7,19 @@ Chemins VERIFIES contre l'OpenAPI officielle du package (pfrest.org,
 api-docs/openapi.json, 29/10/2026) :
   - GET  /api/v2/status/system          (sante — PAS /system/status)
   - GET  /api/v2/firewall/aliases       (liste, champ address = tableau)
-  - PATCH /api/v2/firewall/alias        (par id — pas d'endpoint unitaire
-    d'adresse : lecture + PATCH sous verrou campus, assume)
-  - POST /api/v2/firewall/apply
+  - PATCH /api/v2/firewall/alias        (par id NUMERIQUE — le nom est
+    refuse (404, releve T4) et l'id peut changer : toujours re-resolu par
+    nom via /firewall/aliases avant ecriture, jamais code en dur)
+  - POST /api/v2/firewall/apply   (DIFFERE : repond applied:false ;
+    on sonde GET /firewall/apply jusqu'a applied:true — releve T4 : ~1,6 s)
   - GET  /api/v2/diagnostics/arp_table  (cles ip_address / mac_address)
 Reste a confirmer sur le pfSense reel (T4) : codes de reponse et latences.
 """
 from __future__ import annotations
 
 import httpx
+
+import asyncio
 
 from .base import PfSenseClient, PfSenseError
 
@@ -68,11 +72,14 @@ class RestV2Client(PfSenseClient):
 
     async def _write_addresses(self, addresses: list[str]) -> None:
         async with self._client() as client:
-            if self._alias_id is None:
-                await self._resolve_alias(client)
+            # l'id d'alias est numerique et peut changer (alias recree) :
+            # re-resolution par nom a chaque ecriture (releve T4)
+            await self._resolve_alias(client)
             resp = await client.patch(
                 "/api/v2/firewall/alias",
-                json={"id": self._alias_id, "address": sorted(addresses)},
+                json={"id": self._alias_id,
+                      "address": sorted(addresses),
+                      "detail": ["portail captif SSO"] * len(addresses)},
             )
             self._data(resp)
 
@@ -90,9 +97,23 @@ class RestV2Client(PfSenseClient):
         current.discard(ip)
         await self._write_addresses(sorted(current))
 
+    APPLY_POLL_INTERVAL = 0.4   # releve T4 : effectif en ~1,6 s
+    APPLY_POLL_TIMEOUT = 15.0
+
     async def apply(self) -> None:
+        """Declenche l'application puis attend applied:true (apply differe)."""
         async with self._client() as client:
-            self._data(await client.post("/api/v2/firewall/apply", json={}))
+            data = self._data(await client.post("/api/v2/firewall/apply", json={}))
+            if isinstance(data, dict) and data.get("applied") is True:
+                return
+            deadline = asyncio.get_event_loop().time() + self.APPLY_POLL_TIMEOUT
+            while asyncio.get_event_loop().time() < deadline:
+                await asyncio.sleep(self.APPLY_POLL_INTERVAL)
+                data = self._data(await client.get("/api/v2/firewall/apply"))
+                if isinstance(data, dict) and data.get("applied") is True:
+                    return
+            raise PfSenseError(
+                f"apply non confirme apres {self.APPLY_POLL_TIMEOUT}s sur {self._base}")
 
     async def get_arp_table(self) -> dict[str, str]:
         async with self._client() as client:

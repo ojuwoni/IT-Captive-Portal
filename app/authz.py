@@ -54,11 +54,15 @@ class AuthorizationService:
                         username: str, email: str = "") -> dict:
         mac = await self.mac_for(campus, ip)
         client = self.client_for(campus)
+        # Verrou uniquement sur la lecture+ecriture de l'alias (T4 : deux
+        # PATCH simultanes se perdent sans erreur). L'apply est hors verrou :
+        # il applique TOUT ce qui est en attente, deux apply concurrents sont
+        # inoffensifs, et le debit par campus n'est plus borne par ses ~1,6 s.
         async with CampusLock(self._redis, campus.id,
                               self._settings.campus_lock_ttl_ms,
                               self._settings.campus_lock_retry_ms):
             await client.add_ip(ip)
-            await client.apply()
+        await client.apply()
         session = {"user": username, "email": email, "mac": mac,
                    "login_time": time.strftime("%Y-%m-%dT%H:%M:%SZ",
                                                time.gmtime())}
@@ -73,7 +77,7 @@ class AuthorizationService:
                               self._settings.campus_lock_ttl_ms,
                               self._settings.campus_lock_retry_ms):
             await client.remove_ip(ip)
-            await client.apply()
+        await client.apply()
         session = await self.store.get(campus.id, ip)
         await self.store.delete(campus.id, ip)
         jlog("revoke", campus=campus.id, ip=ip, reason=reason,
