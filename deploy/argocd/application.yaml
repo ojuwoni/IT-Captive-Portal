@@ -1,4 +1,5 @@
 # A appliquer UNE FOIS sur le cluster RKE2 (apres installation d'ArgoCD) :
+#   kubectl apply -f deploy/argocd/appproject.yaml
 #   kubectl apply -f deploy/argocd/application.yaml
 # Ensuite, ArgoCD maintient le cluster conforme au dossier deploy/k8s
 # de la branche v2 : chaque commit (humain ou CI) est deploye et trace.
@@ -8,7 +9,7 @@ metadata:
   name: captive-portal
   namespace: argocd
 spec:
-  project: default
+  project: captive-portal
   source:
     repoURL: https://github.com/ojuwoni/IT-Captive-Portal.git
     targetRevision: v2

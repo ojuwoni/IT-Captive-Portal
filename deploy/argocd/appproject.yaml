@@ -1,0 +1,20 @@
+# Projet ArgoCD dedie au portail captif : perimetre limite a ce seul
+# depot/branche et au seul namespace captive-portal du cluster local.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: captive-portal
+  namespace: argocd
+spec:
+  description: Portail captif SSO RBER — GitOps depuis IT-Captive-Portal@v2
+  sourceRepos:
+    - https://github.com/ojuwoni/IT-Captive-Portal.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: captive-portal
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
