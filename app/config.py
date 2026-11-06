@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 20   # /login et /callback, par IP
     keycloak_admin_page_size: int = 100  # pagination des sessions (reconciler)
+    # Controles de presence du reconciler (toutes les 5 min) :
+    mac_check_enabled: bool = True    # revoque si la MAC d'une IP a change
+    idle_grace_cycles: int = 4        # cycles d'absence ARP avant revocation
+                                      # (4 x 5 min = ~20 min ; 0 = desactive)
 
     # Fichiers / repertoires
     routing_path: str = "config/routing.json"

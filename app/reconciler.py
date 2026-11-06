@@ -5,8 +5,14 @@ La source de verite controlee est L'ALIAS de chaque pfSense :
     - pas de session Redis            -> IP orpheline : retrait immediat
     - session Redis mais plus de
       session Keycloak active         -> retrait + cloture de la session
+    - la MAC de l'IP (table ARP) a
+      change depuis l'authentification -> IP reattribuee a un autre
+      appareil (bail DHCP recycle)    -> retrait + cloture  [mac_check]
+    - IP absente de la table ARP
+      depuis idle_grace_cycles cycles -> appareil parti     [inactivite]
 Ce sens de parcours garantit qu'aucune IP ne reste autorisee sans session
-valide (TTL expire, crash du portail, revocation Keycloak).
+valide ni presence reelle (TTL expire, crash, revocation Keycloak,
+reattribution DHCP, depart du client).
 
 Usage :
   python -m app.reconciler --once
@@ -33,27 +39,49 @@ async def reconcile_campus(authz: AuthorizationService, redis,
     client = authz.client_for(campus)
     alias_ips = await client.get_alias_ips()
     sessions = await authz.store.all_for_campus(campus.id)
-    removed_orphans, removed_expired = [], []
+    arp = await client.get_arp_table() if (
+        settings.mac_check_enabled or settings.idle_grace_cycles > 0) else {}
+    removed = {"orphan": [], "kc_expired": [], "ip_reassigned": [], "idle": []}
+
+    async def _absence(ip: str) -> int:
+        key = f"idle:{campus.id}:{ip}"
+        count = await redis.incr(key)
+        await redis.expire(key, 3600)
+        return count
 
     changed = False
-    async with CampusLock(redis, campus.id, settings.campus_lock_ttl_ms):
+    async with CampusLock(redis, campus.id, settings.campus_lock_ttl_ms,
+                          settings.campus_lock_retry_ms):
         for ip in alias_ips:
             session = sessions.get(ip)
+            reason = None
             if session is None:
-                await client.remove_ip(ip)
-                removed_orphans.append(ip)
-                changed = True
+                reason = "orphan"
             elif kc_active is not None and session.get("user") not in kc_active:
+                reason = "kc_expired"
+            elif settings.mac_check_enabled and session.get("mac")                     and arp.get(ip) and arp[ip] != session["mac"]:
+                # bail DHCP recycle : l'IP appartient a un autre appareil
+                reason = "ip_reassigned"
+            elif settings.idle_grace_cycles > 0 and ip not in arp:
+                if await _absence(ip) >= settings.idle_grace_cycles:
+                    reason = "idle"
+            else:
+                await redis.delete(f"idle:{campus.id}:{ip}")
+
+            if reason:
                 await client.remove_ip(ip)
-                await authz.store.delete(campus.id, ip)
-                removed_expired.append(ip)
+                if session is not None:
+                    await authz.store.delete(campus.id, ip)
+                removed[reason].append(ip)
                 changed = True
     if changed:
         await client.apply()
 
     result = {"campus": campus.id, "alias_count": len(alias_ips),
-              "orphans_removed": len(removed_orphans),
-              "kc_expired_removed": len(removed_expired)}
+              "orphans_removed": len(removed["orphan"]),
+              "kc_expired_removed": len(removed["kc_expired"]),
+              "ip_reassigned_removed": len(removed["ip_reassigned"]),
+              "idle_removed": len(removed["idle"])}
     jlog("reconcile", **result)
     return result
 
