@@ -12,4 +12,4 @@ resources:
   - 50-networkpolicy.yaml
 images:
   - name: registre.rber.bj/rber/captive-portal
-    newTag: f49ae24fc6fd0eb7975dc1b82f6c725676a33613
+    newTag: 9513a528c46592aa8212aa048c1284eea25e4d8c
