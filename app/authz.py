@@ -18,6 +18,12 @@ from .sessions import ArpCache, CampusLock, SessionStore
 log = logging.getLogger("portal.authz")
 
 
+def errstr(exc: BaseException, limit: int = 200) -> str:
+    """Representation toujours non vide d'une exception pour les journaux."""
+    text = str(exc) or repr(exc)
+    return f"{type(exc).__name__}: {text}"[:limit]
+
+
 def jlog(event: str, **fields) -> None:
     """Journal structure JSON (obligation de tracabilite, DAT par. 12)."""
     record = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

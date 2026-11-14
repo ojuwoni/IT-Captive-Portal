@@ -26,7 +26,7 @@ import asyncio
 
 import redis.asyncio as aioredis
 
-from .authz import AuthorizationService, jlog
+from .authz import AuthorizationService, errstr, jlog
 from .config import CampusConfig, CampusRouting, settings
 from .keycloak_admin import KeycloakAdmin
 from .main import make_client  # meme fabrique que le portail (mock incluse)
@@ -114,14 +114,14 @@ async def run_once() -> None:
         except Exception as exc:
             # Keycloak injoignable : on ne revoque PAS en masse (prudence),
             # on ne purge que les orphelines.
-            jlog("reconcile_kc_unreachable", error=str(exc)[:200])
+            jlog("reconcile_kc_unreachable", error=errstr(exc))
             kc_active = None
 
     for campus in routing.all():
         try:
             await reconcile_campus(authz, redis, campus, kc_active)
         except Exception as exc:
-            jlog("reconcile_error", campus=campus.id, error=str(exc)[:200])
+            jlog("reconcile_error", campus=campus.id, error=errstr(exc))
     await redis.aclose()
 
 

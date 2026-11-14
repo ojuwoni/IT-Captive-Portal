@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from starlette.middleware.sessions import SessionMiddleware
 
-from .authz import AuthorizationService, jlog
+from .authz import AuthorizationService, errstr, jlog
 from .config import CampusConfig, CampusRouting, settings
 from .pfsense import MockPfSenseClient, RestV2Client
 from .security import CampusValidationError, client_ip, resolve_campus
@@ -179,7 +179,7 @@ async def callback(request: Request):
     try:
         token = await oauth.keycloak.authorize_access_token(request)
     except Exception as exc:  # erreur OIDC : page claire, jamais de 500 brut
-        jlog("oidc_error", ip=ip, campus=campus_id, error=str(exc)[:200])
+        jlog("oidc_error", ip=ip, campus=campus_id, error=errstr(exc))
         return error_page(found.theme,
                           "Echec de l'authentification. Reessayez.", 400)
 
@@ -190,7 +190,7 @@ async def callback(request: Request):
                               email=userinfo.get("email", ""))
     except Exception as exc:
         jlog("authorize_error", ip=ip, campus=found.id, user=username,
-             error=str(exc)[:200])
+             error=errstr(exc))
         return error_page(found.theme,
                           "Authentification reussie mais autorisation reseau "
                           "en echec. Signalez-le au support.", 502)
@@ -222,7 +222,7 @@ async def logout(request: Request):
         try:
             await authz.revoke(found, ip, reason="logout")
         except Exception as exc:
-            jlog("revoke_error", ip=ip, campus=found.id, error=str(exc)[:200])
+            jlog("revoke_error", ip=ip, campus=found.id, error=errstr(exc))
     request.session.clear()
     return RedirectResponse("/", status_code=302)
 
