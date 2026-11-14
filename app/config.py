@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # Keycloak (RBERConnect)
     keycloak_url: str = "https://auth.rber.bj"
-    keycloak_realm: str = "rber"
+    keycloak_realm: str = "RBERConnect"
     keycloak_client_id: str = "captive-portal"
     keycloak_client_secret: str = ""
     keycloak_client_secret_file: str = ""  # prioritaire si present (Secret K8s)

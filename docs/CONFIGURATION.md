@@ -25,7 +25,7 @@ l'environnement, un fichier `.env` en dev, ou les manifests K8s.
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `KEYCLOAK_URL` | `https://auth.rber.bj` | Base Keycloak |
-| `KEYCLOAK_REALM` | `rber` | Realm |
+| `KEYCLOAK_REALM` | `RBERConnect` | Realm |
 | `KEYCLOAK_CLIENT_ID` | `captive-portal` | Client OIDC du portail |
 | `KEYCLOAK_CLIENT_SECRET` / `_FILE` | — | Secret du client (fichier prioritaire — Secret K8s) |
 | `KEYCLOAK_ADMIN_CLIENT_ID` | `portal-reconciler` | Compte de service du réconciliateur |

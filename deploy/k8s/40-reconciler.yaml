@@ -17,6 +17,8 @@ spec:
               image: registre.rber.bj/rber/captive-portal:v2
               command: ["python", "-m", "app.reconciler", "--once"]
               env:
+                - { name: KEYCLOAK_URL, value: "https://auth.rber.bj" }
+                - { name: KEYCLOAK_REALM, value: "RBERConnect" }
                 - { name: REDIS_URL, value: "redis://redis-svc:6379/0" }
                 - { name: ROUTING_PATH, value: "/opt/captive-portal/config/routing.json" }
                 - { name: SECRETS_DIR, value: "/opt/captive-portal/secrets" }
