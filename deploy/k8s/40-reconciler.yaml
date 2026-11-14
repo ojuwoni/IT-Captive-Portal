@@ -32,4 +32,4 @@ spec:
             - name: kc
               secret: { secretName: keycloak-reconciler }
             - name: pfsense-keys
-              secret: { name: pfsense-keys }  # meme Secret unique que le portail
+              secret: { secretName: pfsense-keys }  # meme Secret unique que le portail
