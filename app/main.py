@@ -133,9 +133,10 @@ async def index(request: Request, campus: str | None = None):
     try:
         found, inferred = resolve_campus(campus, ip, routing)
     except CampusValidationError as exc:
+        # IP hors de tout subnet campus : visiteur externe (ou parametre
+        # falsifie). Un selecteur serait une boucle inutile — page claire.
         jlog("campus_rejected", ip=ip, param=campus, reason=exc.reason)
-        return render("select_campus.html", "_default",
-                      campuses=routing.all(), client_ip=ip)
+        return render("out_of_network.html", "_default", client_ip=ip)
 
     existing = await authz.store.get(found.id, ip)
     if existing:
