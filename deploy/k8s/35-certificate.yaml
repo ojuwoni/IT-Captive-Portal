@@ -1,0 +1,15 @@
+# P4 — certificat TLS de portal.rber.bj, emis et renouvele par cert-manager
+# (ClusterIssuer letsencrypt-prod, deja present sur le cluster). Le Secret
+# rber-tls-portal est cree automatiquement et ramasse par portal-ingress.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: portal-rber-bj
+  namespace: captive-portal
+spec:
+  secretName: rber-tls-portal
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - portal.rber.bj

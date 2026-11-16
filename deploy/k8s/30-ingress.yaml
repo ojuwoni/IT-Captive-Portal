@@ -4,9 +4,8 @@ kind: Ingress
 metadata:
   name: portal-ingress
   namespace: captive-portal
-  annotations:
-    kubernetes.io/ingress.class: haproxy
 spec:
+  ingressClassName: haproxy
   rules:
     - host: portal.rber.bj
       http:
@@ -28,8 +27,7 @@ kind: Ingress
 metadata:
   name: portal-catchall
   namespace: captive-portal
-  annotations:
-    kubernetes.io/ingress.class: haproxy
 spec:
+  ingressClassName: haproxy
   defaultBackend:
     service: { name: portal-svc, port: { number: 8000 } }
