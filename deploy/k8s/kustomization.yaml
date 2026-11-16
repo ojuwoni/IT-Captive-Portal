@@ -11,6 +11,7 @@ resources:
   - 35-certificate.yaml
   - 40-reconciler.yaml
   - 50-networkpolicy.yaml
+  - 51-networkpolicy-ingress.yaml
 images:
   - name: registre.rber.bj/rber/captive-portal
     newTag: dbd17d15073ce43d3716a51c22e1d865cd20b099

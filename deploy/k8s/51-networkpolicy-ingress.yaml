@@ -1,0 +1,16 @@
+# Autorise explicitement le trafic ENTRANT vers tous les pods du namespace
+# (portail, redis via sa propre regle implicite, solveurs ACME).
+# Necessaire sur un cluster Rancher avec isolation reseau par projet :
+# sans cette policy, le controleur ingress (autre namespace/projet) ne peut
+# pas joindre les pods -> Layer4 timeout -> 503 (constate le 16/11).
+# L'egress du portail reste restreint par 50-networkpolicy.yaml.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-all
+  namespace: captive-portal
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - {}
