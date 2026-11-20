@@ -29,7 +29,12 @@ def test_jambe_https_xff_forge_depuis_internet(settings):
     # l'element precedent est ecrit par le client -> jamais cru
     assert client_ip(INGRESS, f"10.24.5.5, {SNAT}", settings, "https") == SNAT
     assert client_ip(INGRESS, f"10.24.5.5, {HAPROXY}", settings, "https") == HAPROXY
-    assert client_ip(INGRESS, f"10.24.5.5, {SNAT}", settings, None) == SNAT
+
+
+def test_jambe_http_sans_entete_proto(settings):
+    # sur la jambe HTTP l'ingress peut ne poser aucun X-Forwarded-Proto
+    assert client_ip(INGRESS, f"10.24.127.21, {SNAT}", settings, None) == "10.24.127.21"
+    assert client_ip(INGRESS, f"10.24.5.5, 197.234.1.9, {SNAT}", settings, None) == "197.234.1.9"
 
 
 def test_source_directe_vue_par_l_ingress(settings):
@@ -61,3 +66,17 @@ def test_inference_par_ip(routing):
 def test_ip_hors_de_tout_subnet(routing):
     with pytest.raises(CampusValidationError):
         resolve_campus(None, "192.168.1.10", routing)
+
+
+def test_lignes_d_entete_multiples_lues_en_entier():
+    # regression du 21/11 : le relais ajoute sa valeur sur une 2e ligne ;
+    # lire seulement la 1re revenait a croire le client
+    from starlette.requests import Request
+    from app.main import ip_of
+    scope = {"type": "http", "method": "GET", "path": "/", "query_string": b"",
+             "client": ("10.42.0.7", 1234),
+             "headers": [(b"x-forwarded-for", b"10.24.5.5"),
+                         (b"x-forwarded-for", b"10.42.12.0"),
+                         (b"x-forwarded-proto", b"http"),
+                         (b"x-forwarded-proto", b"https")]}
+    assert ip_of(Request(scope)) == "10.42.12.0"

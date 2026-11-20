@@ -38,6 +38,8 @@ def client_ip(peer_ip: str, xff_header: str | None, settings: Settings,
       HTTP, ou le HAProxy externe (mode http) l'a effectivement ajoute.
       Sur la jambe HTTPS (passthrough TCP) le HAProxy n'ajoute rien :
       l'element precedent serait ecrit par le client, donc on ne le croit pas.
+    - L'appelant doit fournir TOUTES les lignes X-Forwarded-For jointes
+      (un relais peut ajouter la sienne sur une ligne separee).
 
     Faille corrigee le 21/11/2026 : l'ancienne version lisait le PREMIER
     element, falsifiable depuis Internet.
@@ -54,8 +56,11 @@ def client_ip(peer_ip: str, xff_header: str | None, settings: Settings,
         return peer_ip
     if not _is_trusted(last, settings):
         return last
+    # Jambe HTTPS : l'ingress impose toujours X-Forwarded-Proto=https (verifie
+    # en production le 21/11 : une valeur forgee par le client est ecrasee).
+    # Tout le reste (http, ou absent) est la jambe HTTP.
     proto = (forwarded_proto or "").split(",")[-1].strip().lower()
-    if proto == "http" and len(chain) >= 2:
+    if proto != "https" and len(chain) >= 2:
         prev = chain[-2]
         try:
             ipaddress.ip_address(prev)

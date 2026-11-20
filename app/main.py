@@ -93,8 +93,12 @@ def render(name: str, theme_id: str, **ctx) -> HTMLResponse:
 
 def ip_of(request: Request) -> str:
     peer = request.client.host if request.client else "0.0.0.0"
-    return client_ip(peer, request.headers.get("x-forwarded-for"), settings,
-                     request.headers.get("x-forwarded-proto"))
+    # Un relais peut ajouter SA valeur sur une ligne d'en-tete separee :
+    # il faut lire toutes les lignes, pas seulement la premiere (qui peut
+    # etre celle ecrite par le client).
+    xff = ", ".join(request.headers.getlist("x-forwarded-for")) or None
+    protos = request.headers.getlist("x-forwarded-proto")
+    return client_ip(peer, xff, settings, protos[-1] if protos else None)
 
 
 def error_page(theme_id: str, message: str, status: int = 400) -> HTMLResponse:
