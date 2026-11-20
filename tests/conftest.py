@@ -35,6 +35,6 @@ def redis():
 @pytest.fixture()
 def settings():
     from app.config import Settings
-    return Settings(trusted_proxies="10.42.0.0/16,127.0.0.1/32",
+    return Settings(trusted_proxies="10.42.0.0/16,127.0.0.1/32,10.29.113.21/32,10.29.113.22/32",
                     session_ttl=3600, arp_cache_ttl=45,
                     campus_lock_ttl_ms=2000, rate_limit_per_minute=5)

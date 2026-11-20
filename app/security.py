@@ -14,26 +14,55 @@ class CampusValidationError(Exception):
         super().__init__(reason)
 
 
-def client_ip(peer_ip: str, xff_header: str | None, settings: Settings) -> str:
-    """IP reelle du client.
+def _is_trusted(addr: str, settings: Settings) -> bool:
+    try:
+        ip = ipaddress.ip_address(addr)
+    except ValueError:
+        return False
+    return any(ip in net for net in settings.trusted_networks())
 
-    X-Forwarded-For n'est cru que si la connexion vient d'un proxy de
-    confiance (l'ingress, qui recoit l'IP d'origine via PROXY protocol).
-    Un XFF envoye directement par un client est ignore (defaut M2 de l'audit).
+
+def client_ip(peer_ip: str, xff_header: str | None, settings: Settings,
+              forwarded_proto: str | None = None) -> str:
+    """IP reelle du client, sans jamais croire ce que le client ecrit lui-meme.
+
+    Chaque relais AJOUTE une adresse a la fin de X-Forwarded-For ; un client
+    peut en ecrire au debut. On ne lit donc que la fin de la liste :
+
+      [ ...ecrit par le client... , ajoute par le HAProxy externe , ajoute par l'ingress ]
+
+    - Le dernier element est ce que l'ingress a vu comme source. S'il n'est
+      pas un relais connu, c'est le client lui-meme.
+    - S'il est un relais connu (HAProxy externe ou adresse de noeud), le
+      client reel est l'element precedent — MAIS seulement sur la jambe
+      HTTP, ou le HAProxy externe (mode http) l'a effectivement ajoute.
+      Sur la jambe HTTPS (passthrough TCP) le HAProxy n'ajoute rien :
+      l'element precedent serait ecrit par le client, donc on ne le croit pas.
+
+    Faille corrigee le 21/11/2026 : l'ancienne version lisait le PREMIER
+    element, falsifiable depuis Internet.
     """
-    if xff_header:
+    if not xff_header or not _is_trusted(peer_ip, settings):
+        return peer_ip
+    chain = [p.strip() for p in xff_header.split(",") if p.strip()]
+    if not chain:
+        return peer_ip
+    last = chain[-1]
+    try:
+        ipaddress.ip_address(last)
+    except ValueError:
+        return peer_ip
+    if not _is_trusted(last, settings):
+        return last
+    proto = (forwarded_proto or "").split(",")[-1].strip().lower()
+    if proto == "http" and len(chain) >= 2:
+        prev = chain[-2]
         try:
-            peer = ipaddress.ip_address(peer_ip)
+            ipaddress.ip_address(prev)
+            return prev
         except ValueError:
-            return peer_ip
-        if any(peer in net for net in settings.trusted_networks()):
-            first = xff_header.split(",")[0].strip()
-            try:
-                ipaddress.ip_address(first)
-                return first
-            except ValueError:
-                pass
-    return peer_ip
+            pass
+    return last
 
 
 def resolve_campus(

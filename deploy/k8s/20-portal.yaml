@@ -22,8 +22,8 @@ spec:
             - { name: SECRETS_DIR, value: "/opt/captive-portal/secrets" }
             - { name: KEYCLOAK_CLIENT_SECRET_FILE, value: "/opt/captive-portal/kc/client-secret" }
             - { name: SECRET_KEY, valueFrom: { secretKeyRef: { name: portal-secret-key, key: secret-key } } }
-            # TRUSTED_PROXIES : adapter au CIDR des pods de l'ingress
-            - { name: TRUSTED_PROXIES, value: "10.42.0.0/16,127.0.0.1/32" }
+            # TRUSTED_PROXIES : pods/noeuds du cluster + les deux HAProxy externes
+            - { name: TRUSTED_PROXIES, value: "10.42.0.0/16,127.0.0.1/32,10.29.113.21/32,10.29.113.22/32" }
           volumeMounts:
             - { name: routing, mountPath: /opt/captive-portal/config, readOnly: true }
             - { name: pfsense-keys, mountPath: /opt/captive-portal/secrets, readOnly: true }

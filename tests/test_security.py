@@ -3,13 +3,38 @@ import pytest
 from app.security import CampusValidationError, client_ip, resolve_campus
 
 
+INGRESS = "10.42.0.7"       # pod de l'ingress (pair direct du portail)
+SNAT = "10.42.12.0"         # adresse de noeud vue par l'ingress
+HAPROXY = "10.29.113.21"    # HAProxy externe
+
+
 def test_xff_ignore_si_pair_non_de_confiance(settings):
-    # un client qui forge X-Forwarded-For ne doit pas etre cru (M2)
     assert client_ip("10.24.50.9", "1.2.3.4", settings) == "10.24.50.9"
 
 
-def test_xff_accepte_depuis_ingress(settings):
-    assert client_ip("10.42.0.7", "10.24.127.21", settings) == "10.24.127.21"
+def test_jambe_http_ip_reelle(settings):
+    # HAProxy (mode http) ajoute le client, l'ingress ajoute sa source
+    assert client_ip(INGRESS, f"10.24.127.21, {SNAT}", settings, "http") == "10.24.127.21"
+    assert client_ip(INGRESS, f"10.24.127.21, {HAPROXY}", settings, "http") == "10.24.127.21"
+
+
+def test_jambe_http_xff_forge_par_le_client(settings):
+    # le client ecrit une fausse adresse au debut : elle est ignoree
+    xff = f"10.24.5.5, 197.234.1.9, {SNAT}"
+    assert client_ip(INGRESS, xff, settings, "http") == "197.234.1.9"
+
+
+def test_jambe_https_xff_forge_depuis_internet(settings):
+    # FAILLE du 21/11 : sur la jambe HTTPS le HAProxy n'ajoute rien, donc
+    # l'element precedent est ecrit par le client -> jamais cru
+    assert client_ip(INGRESS, f"10.24.5.5, {SNAT}", settings, "https") == SNAT
+    assert client_ip(INGRESS, f"10.24.5.5, {HAPROXY}", settings, "https") == HAPROXY
+    assert client_ip(INGRESS, f"10.24.5.5, {SNAT}", settings, None) == SNAT
+
+
+def test_source_directe_vue_par_l_ingress(settings):
+    # si l'ingress voit le client lui-meme (pas de relais), c'est lui
+    assert client_ip(INGRESS, "10.24.5.5, 10.24.127.30", settings, "https") == "10.24.127.30"
 
 
 def test_campus_declare_et_coherent(routing):

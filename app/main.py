@@ -93,7 +93,8 @@ def render(name: str, theme_id: str, **ctx) -> HTMLResponse:
 
 def ip_of(request: Request) -> str:
     peer = request.client.host if request.client else "0.0.0.0"
-    return client_ip(peer, request.headers.get("x-forwarded-for"), settings)
+    return client_ip(peer, request.headers.get("x-forwarded-for"), settings,
+                     request.headers.get("x-forwarded-proto"))
 
 
 def error_page(theme_id: str, message: str, status: int = 400) -> HTMLResponse:

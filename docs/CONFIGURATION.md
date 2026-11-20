@@ -55,7 +55,7 @@ l'environnement, un fichier `.env` en dev, ou les manifests K8s.
 ### Réseau / fichiers
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `TRUSTED_PROXIES` | `127.0.0.1/32,10.42.0.0/16` | CIDR autorisés à transmettre X-Forwarded-For (ingress) |
+| `TRUSTED_PROXIES` | `127.0.0.1/32,10.42.0.0/16,10.29.113.21/32,10.29.113.22/32` | Relais connus (cluster + les deux HAProxy externes). Seule la fin de X-Forwarded-For est lue ; l'adresse écrite par le client n'est jamais crue |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis |
 | `ROUTING_PATH` | `config/routing.json` | Table des campus |
 | `SECRETS_DIR` | `secrets` | Dossier des clés API pfSense |

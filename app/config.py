@@ -61,7 +61,8 @@ class Settings(BaseSettings):
     pfsense_mode: str = "restv2"
 
     # Reseau
-    trusted_proxies: str = "127.0.0.1/32,10.42.0.0/16"  # ingress RKE2 par defaut
+    # Relais de confiance : pods/noeuds du cluster + les deux HAProxy externes
+    trusted_proxies: str = "127.0.0.1/32,10.42.0.0/16,10.29.113.21/32,10.29.113.22/32"
     pfsense_verify_tls: bool = True
     pfsense_ca_bundle: str = ""       # CA interne RBER (chemin), sinon store systeme
     pfsense_timeout: float = 10.0
