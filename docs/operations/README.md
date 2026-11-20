@@ -20,3 +20,6 @@ Conventions apprises sur ce cluster (à connaître pour tout déploiement) :
 - Tout nouveau domaine public doit être ajouté à l'ACL `host_known`
   du frontend HTTP du HAProxy externe (sinon il perd sa redirection
   https au profit du portail captif).
+- Les adresses des noeuds du cluster doivent figurer dans `TRUSTED_PROXIES`
+  du portail (`deploy/k8s/20-portal.yaml`). A chaque ajout de noeud, completer
+  la liste — sinon la detection du campus echoue par intermittence.

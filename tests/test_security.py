@@ -80,3 +80,16 @@ def test_lignes_d_entete_multiples_lues_en_entier():
                          (b"x-forwarded-proto", b"http"),
                          (b"x-forwarded-proto", b"https")]}
     assert ip_of(Request(scope)) == "10.42.12.0"
+
+
+def test_noeud_du_cluster_vu_comme_source_par_l_ingress():
+    # constate le 20/11 : selon le pod d'ingress, la source vue est
+    # 10.42.12.0 ou l'adresse du noeud (10.29.113.11 = wrk-02). Les deux
+    # doivent etre reconnues comme relais, sinon la detection echoue 1 fois sur 2.
+    from app.config import Settings
+    s = Settings(trusted_proxies="10.42.0.0/16,127.0.0.1/32,10.29.113.21/32,"
+                                 "10.29.113.22/32,10.29.113.11/32")
+    assert client_ip(INGRESS, "10.24.127.28, 10.29.113.11", s, None) == "10.24.127.28"
+    assert client_ip(INGRESS, "10.24.127.28, 10.42.12.0", s, None) == "10.24.127.28"
+    # et en HTTPS, l'adresse ecrite par le client reste ignoree
+    assert client_ip(INGRESS, "10.24.5.5, 10.29.113.11", s, "https") == "10.29.113.11"

@@ -22,8 +22,14 @@ spec:
             - { name: SECRETS_DIR, value: "/opt/captive-portal/secrets" }
             - { name: KEYCLOAK_CLIENT_SECRET_FILE, value: "/opt/captive-portal/kc/client-secret" }
             - { name: SECRET_KEY, valueFrom: { secretKeyRef: { name: portal-secret-key, key: secret-key } } }
-            # TRUSTED_PROXIES : pods/noeuds du cluster + les deux HAProxy externes
-            - { name: TRUSTED_PROXIES, value: "10.42.0.0/16,127.0.0.1/32,10.29.113.21/32,10.29.113.22/32" }
+            # TRUSTED_PROXIES : relais connus = reseau des pods, les deux HAProxy
+            # externes (.21, .22) et les 12 noeuds du cluster. Avec
+            # externalTrafficPolicy: Cluster, l'ingress voit comme source soit
+            # une adresse 10.42.x.0, soit l'adresse du noeud qui a recu le flux
+            # (ex. 10.29.113.11 = wrk-02). Un noeud absent de cette liste est pris
+            # pour un client : la detection du campus echoue par intermittence.
+            # A COMPLETER a chaque ajout de noeud (kubectl get nodes -o wide).
+            - { name: TRUSTED_PROXIES, value: "10.42.0.0/16,127.0.0.1/32,10.29.113.21/32,10.29.113.22/32,10.29.113.2/32,10.29.113.3/32,10.29.113.4/32,10.29.113.5/32,10.29.113.6/32,10.29.113.7/32,10.29.113.10/32,10.29.113.11/32,10.29.113.12/32,10.29.113.13/32,10.29.113.14/32,10.29.113.15/32" }
           volumeMounts:
             - { name: routing, mountPath: /opt/captive-portal/config, readOnly: true }
             - { name: pfsense-keys, mountPath: /opt/captive-portal/secrets, readOnly: true }
