@@ -14,4 +14,4 @@ resources:
   - 51-networkpolicy-ingress.yaml
 images:
   - name: registre.rber.bj/rber/captive-portal
-    newTag: d6f372a262ffc8a04e8c36b70b232585077403d3
+    newTag: 3e2fe0ed0af235aa2ca944e77eeb7a21c3a49788
