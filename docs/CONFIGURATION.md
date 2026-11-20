@@ -41,6 +41,9 @@ l'environnement, un fichier `.env` en dev, ou les manifests K8s.
 | `ARP_CACHE_TTL` | `45` | Cache des tables ARP (s) — protège l'API pfSense |
 | `CAMPUS_LOCK_TTL_MS` | `5000` | Durée max du verrou d'écriture d'alias |
 | `CAMPUS_LOCK_RETRY_MS` | `50` | Attente entre deux essais de verrou |
+| `IP_TOKEN_TTL` | `300` | Validité (s) du jeton d'IP placé dans le lien de redirection |
+| `VERIFIED_IP_TTL` | `900` | Durée (s) pendant laquelle la session se souvient de l'IP vérifiée |
+| `BOUNCE_URL` | vide | Adresse HTTP vers laquelle renvoyer un client arrivé directement en HTTPS sans jeton (ex. `http://captive.rber.bj/`). Le nom doit pointer sur le HAProxy et ne PAS figurer dans `host_known`. Vide = page d'information |
 | `MAC_CHECK_ENABLED` | `true` | Révoque si la MAC d'une IP autorisée change (bail DHCP réattribué) |
 | `IDLE_GRACE_CYCLES` | `4` | Cycles de réconciliation (5 min) d'absence ARP avant révocation pour inactivité (~20 min) ; `0` = désactivé |
 

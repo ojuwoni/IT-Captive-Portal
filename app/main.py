@@ -10,6 +10,7 @@ un 302 vers /?campus=<deduit de l'IP source>.
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 
 import redis.asyncio as aioredis
@@ -23,7 +24,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from .authz import AuthorizationService, errstr, jlog
 from .config import CampusConfig, CampusRouting, settings
 from .pfsense import MockPfSenseClient, RestV2Client
-from .security import CampusValidationError, client_ip, resolve_campus
+from .security import (CampusValidationError, client_ip, make_ip_token,
+                       read_ip_token, resolve_campus)
 from .sessions import RateLimiter
 from .themes import ThemeRegistry
 
@@ -31,7 +33,8 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("portal")
 
 app = FastAPI(title=settings.app_name, docs_url=None, redoc_url=None)
-app.add_middleware(SessionMiddleware, secret_key=settings.secret_key or "dev-only",
+SECRET = settings.secret_key or "dev-only"
+app.add_middleware(SessionMiddleware, secret_key=SECRET,
                    https_only=not settings.debug, same_site="lax")
 
 routing = CampusRouting(settings.routing_path)
@@ -101,6 +104,31 @@ def ip_of(request: Request) -> str:
     return client_ip(peer, xff, settings, protos[-1] if protos else None)
 
 
+def effective_ip(request: Request, token: str | None = None) -> str:
+    """IP a autoriser pour ce client.
+
+    1. Si l'adresse lue dans les en-tetes est deja celle d'un campus (jambe
+       HTTP), on la prend.
+    2. Sinon (jambe HTTPS) : jeton signe recu dans le lien, puis souvenir
+       de ce jeton dans la session (cookie signe), pendant verified_ip_ttl.
+    3. Sinon : l'adresse lue (celle d'un relais) -> aucun campus.
+    """
+    seen = ip_of(request)
+    if routing.find_by_ip(seen) is not None:
+        return seen
+    if token:
+        tip = read_ip_token(SECRET, token, settings.ip_token_ttl)
+        if tip and routing.find_by_ip(tip) is not None:
+            request.session["vip"] = {"ip": tip,
+                                      "exp": time.time() + settings.verified_ip_ttl}
+            return tip
+        jlog("ip_token_rejected", seen=seen)
+    vip = request.session.get("vip")
+    if isinstance(vip, dict) and vip.get("exp", 0) > time.time():
+        return vip.get("ip", seen)
+    return seen
+
+
 def error_page(theme_id: str, message: str, status: int = 400) -> HTMLResponse:
     resp = render("error.html", theme_id, message=message)
     resp.status_code = status
@@ -122,22 +150,32 @@ async def health():
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, campus: str | None = None):
-    ip = ip_of(request)
+async def index(request: Request, campus: str | None = None,
+                t: str | None = None, nb: str | None = None):
     host = request.headers.get("host", "").split(":")[0].lower()
 
-    # Sonde CNA ou trafic intercepte : Host etranger -> 302 vers le portail
+    # Sonde CNA ou trafic intercepte (jambe HTTP) : Host etranger -> 302 vers
+    # le portail. C'est ICI que l'IP reelle est connue : on la joint au lien
+    # sous forme de jeton signe, pour la jambe HTTPS qui suit.
     if host and host != settings.public_host and "localhost" not in host:
+        ip = ip_of(request)
         try:
             found, _ = resolve_campus(None, ip, routing)
-            target = f"{settings.public_base_url}/?campus={found.id}"
+            target = (f"{settings.public_base_url}/?campus={found.id}"
+                      f"&t={make_ip_token(SECRET, ip)}")
         except CampusValidationError:
-            target = settings.public_base_url
+            # nb=1 : « deja renvoye », evite une boucle de renvois
+            target = f"{settings.public_base_url}/?nb=1"
         return RedirectResponse(target, status_code=302)
 
+    ip = effective_ip(request, t)
     try:
         found, inferred = resolve_campus(campus, ip, routing)
     except CampusValidationError as exc:
+        # Arrive directement en HTTPS, sans jeton : on le renvoie une fois
+        # vers une adresse HTTP ou son IP reelle sera lue (si configuree).
+        if settings.bounce_url and not nb and not t:
+            return RedirectResponse(settings.bounce_url, status_code=302)
         # IP hors de tout subnet campus : visiteur externe (ou parametre
         # falsifie). Un selecteur serait une boucle inutile — page claire.
         jlog("campus_rejected", ip=ip, param=campus, reason=exc.reason)
@@ -153,7 +191,7 @@ async def index(request: Request, campus: str | None = None):
 
 @app.get("/login")
 async def login(request: Request, campus: str | None = None):
-    ip = ip_of(request)
+    ip = effective_ip(request)
     if not await limiter.allow(ip):
         return error_page("_default", "Trop de tentatives. Reessayez dans une minute.", 429)
     try:
@@ -169,7 +207,7 @@ async def login(request: Request, campus: str | None = None):
 
 @app.get("/callback")
 async def callback(request: Request):
-    ip = ip_of(request)
+    ip = effective_ip(request)
     if not await limiter.allow(ip):
         return error_page("_default", "Trop de tentatives. Reessayez dans une minute.", 429)
 
@@ -207,7 +245,7 @@ async def callback(request: Request):
 
 @app.get("/success", response_class=HTMLResponse)
 async def success(request: Request):
-    ip = ip_of(request)
+    ip = effective_ip(request)
     campus_id = request.session.get("campus")
     found = routing.get(campus_id)
     if found is None:
@@ -221,7 +259,7 @@ async def success(request: Request):
 
 @app.get("/logout")
 async def logout(request: Request):
-    ip = ip_of(request)
+    ip = effective_ip(request)
     campus_id = request.session.get("campus")
     found = routing.get(campus_id) or routing.find_by_ip(ip)
     if found is not None:
@@ -235,7 +273,7 @@ async def logout(request: Request):
 
 @app.get("/status")
 async def status(request: Request):
-    ip = ip_of(request)
+    ip = effective_ip(request)
     found = routing.find_by_ip(ip)
     if found is None:
         return {"connected": False, "reason": "campus inconnu", "ip": ip}

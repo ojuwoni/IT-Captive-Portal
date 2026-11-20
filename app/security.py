@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import ipaddress
 
+from itsdangerous import BadSignature, URLSafeTimedSerializer
+
 from .config import CampusConfig, CampusRouting, Settings
 
 
@@ -93,3 +95,28 @@ def resolve_campus(
     if inferred is not None:
         return inferred, True
     raise CampusValidationError(f"aucun campus pour l'IP {ip}")
+
+
+# ---------------------------------------------------------------- jeton d'IP
+# Sur la jambe HTTP le portail connait l'IP reelle du client ; sur la jambe
+# HTTPS (passthrough TCP) il ne voit que l'adresse d'un relais. Le portail
+# se transmet donc l'IP a lui-meme, dans le lien de redirection, sous forme
+# d'un jeton SIGNE et a duree courte : le client le transporte mais ne peut
+# ni le fabriquer ni le modifier.
+_TOKEN_SALT = "portal-client-ip-v1"
+
+
+def make_ip_token(secret: str, ip: str) -> str:
+    return URLSafeTimedSerializer(secret, salt=_TOKEN_SALT).dumps({"ip": ip})
+
+
+def read_ip_token(secret: str, token: str, max_age: int) -> str | None:
+    """IP contenue dans le jeton, ou None s'il est invalide, modifie ou expire."""
+    try:
+        data = URLSafeTimedSerializer(secret, salt=_TOKEN_SALT).loads(
+            token, max_age=max_age)
+        ip = data.get("ip") if isinstance(data, dict) else None
+        ipaddress.ip_address(ip)
+        return ip
+    except (BadSignature, ValueError, TypeError):
+        return None

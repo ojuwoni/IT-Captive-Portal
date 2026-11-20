@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     campus_lock_ttl_ms: int = 5000    # verrou d'ecriture d'alias par campus
     campus_lock_retry_ms: int = 50    # attente entre deux essais de verrou
     arp_cache_ttl: int = 45           # cache des lectures ARP (secondes)
+    # Jeton d'IP (transmission de l'IP reelle de la jambe HTTP a la jambe HTTPS)
+    ip_token_ttl: int = 300           # validite du jeton dans le lien (s)
+    verified_ip_ttl: int = 900        # duree pendant laquelle la session s'en souvient (s)
+    # Adresse HTTP ou renvoyer un client arrive directement en HTTPS sans
+    # jeton, pour qu'il en obtienne un. Vide = pas de renvoi (page d'information).
+    # Le nom doit pointer sur le HAProxy et NE PAS figurer dans host_known.
+    bounce_url: str = ""
     rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 20   # /login et /callback, par IP
     keycloak_admin_page_size: int = 100  # pagination des sessions (reconciler)

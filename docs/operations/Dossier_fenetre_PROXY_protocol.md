@@ -1,5 +1,18 @@
 # Fenêtre PROXY protocol — Dossier d'exécution
 
+> **STATUT : SUSPENDU — NE PAS EXÉCUTER EN L'ÉTAT (21/11/2026).**
+> La tentative du 20/11 a coupé le HTTPS du cluster et a été annulée par
+> rollback. Deux hypothèses de ce dossier étaient fausses :
+> 1. le service de l'ingress est en `externalTrafficPolicy: Cluster` : le
+>    cluster réécrit l'adresse source, l'ingress voit `10.42.x.0` et non
+>    l'adresse du HAProxy — la règle `proxy-protocol` ne s'applique jamais ;
+> 2. il y a DEUX serveurs HAProxy (10.29.113.21 et .22, adresse virtuelle
+>    .20) : la règle doit lister les deux, et le fichier doit être posé
+>    sur les deux.
+> Le besoin du portail est couvert autrement (voir `Jeton_IP.md`). Une
+> reprise demande d'abord : service ingress en `Local`, liste .21 + .22,
+> 21 lignes sur les deux serveurs, et une répétition préalable.
+
 ## 0. Le pourquoi, en langage simple (à lire avant tout)
 
 **Le problème.** Pour ouvrir Internet à un étudiant, le portail doit
