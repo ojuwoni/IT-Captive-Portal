@@ -76,7 +76,10 @@ oauth.register(
     client_id=settings.keycloak_client_id,
     client_secret=settings.keycloak_secret(),
     server_metadata_url=settings.keycloak_metadata_url,
-    client_kwargs={"scope": "openid profile email"},
+    # PKCE S256 : exige par le client captive-portal dans RBERConnect
+    # (sans lui : « Missing parameter: code_challenge_method », constate le 20/11)
+    client_kwargs={"scope": "openid profile email",
+                   "code_challenge_method": "S256"},
 )
 
 if Path(settings.static_dir).exists():

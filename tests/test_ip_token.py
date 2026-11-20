@@ -51,6 +51,7 @@ class _FromIngress:
 def client(monkeypatch):
     fake = fakeredis.aioredis.FakeRedis(decode_responses=True)
     monkeypatch.setattr(main.authz.store, "_r", fake)
+    monkeypatch.setattr(main.limiter, "_r", fake)
     monkeypatch.setattr(main.settings, "bounce_url", "")
     return TestClient(_FromIngress(main.app), follow_redirects=False,
                       base_url="https://portal.rber.bj")
@@ -164,3 +165,18 @@ def test_acme_d_un_autre_domaine_non_redirige(client):
 def test_portail_en_direct_non_redirige(client):
     r = client.get("/?campus=uac", headers=https())
     assert r.status_code == 200
+
+
+def test_la_demande_de_connexion_utilise_pkce(client, monkeypatch):
+    # regression du 20/11 : RBERConnect exige PKCE S256 sur ce client
+    async def fake_metadata(*a, **k):
+        return {"authorization_endpoint": "https://auth.rber.bj/realms/RBERConnect/protocol/openid-connect/auth",
+                "token_endpoint": "https://auth.rber.bj/t", "issuer": "https://auth.rber.bj/realms/RBERConnect"}
+    monkeypatch.setattr(main.oauth.keycloak, "load_server_metadata", fake_metadata)
+    token = intercept(client).headers["location"].split("&t=")[1]
+    client.get(f"/?campus=uac&t={token}", headers=https())
+    r = client.get("/login?campus=uac", headers=https())
+    assert r.status_code == 302
+    loc = r.headers["location"]
+    assert loc.startswith("https://auth.rber.bj/")
+    assert "code_challenge=" in loc and "code_challenge_method=S256" in loc
