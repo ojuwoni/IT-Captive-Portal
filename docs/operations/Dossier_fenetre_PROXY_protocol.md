@@ -24,7 +24,7 @@ inscrit côté cluster n'est pas du routage : c'est le nom du livreur
 concerné par la nouvelle règle (« de la part de .21, j'attends désormais
 la ligne d'expéditeur »).
 
-**Pourquoi une coupure, et pourquoi elle touche Keycloak et les Moodle.**
+**Pourquoi une coupure, et pourquoi elle touche aussi les autres services.**
 La convention est un accord de langue entre les deux bouts du tuyau :
 
 | Le relais écrit la ligne | Le destinataire l'attend | Résultat |
@@ -37,7 +37,8 @@ La convention est un accord de langue entre les deux bouts du tuyau :
 On ne peut pas actionner les deux interrupteurs au même instant exact :
 pendant les quelques secondes entre les deux, on est dans un cas « cassé ».
 C'est toute la coupure : l'instant du changement de langue. Elle touche
-Keycloak et les Moodle parce qu'ils voyagent dans le même tuyau — la
+tous les services du cluster (Keycloak, Moodle, Harbor, Gitea, ArgoCD,
+Grafana…) parce qu'ils voyagent dans le même tuyau — la
 langue se change pour le tuyau entier, pas site par site. Après, ils
 fonctionnent exactement comme avant : la première ligne est lue et
 retirée, le reste ne change pas pour eux.
@@ -55,11 +56,9 @@ captif sur la jambe HTTPS (frontend TCP/SNI). Dernier prérequis du pilote
 T-INT : après cette fenêtre, un client du banc UAC verra la page de
 connexion au lieu de « hors réseau campus ».
 
-**Périmètre impacté.** Tout le trafic passant par les backends
-`bk_k8s_ingress` (80) et `bk_k8s_ingress_https` (443) du HAProxy externe :
-auth.rber.bj (Keycloak), les 4 Moodle, cloud, transport-u, teleenseignement,
-rber.bj, portail. Coupure effective : **moins d'une minute** si le
-déroulé est préparé ; fenêtre réservée : 30 minutes.
+**Périmètre impacté.** Toutes les connexions du HAProxy externe vers l'ingress
+RKE2 (10.29.113.201) — 21 lignes `server` dans le fichier — soit tous les services publiés via le cluster : auth.rber.bj (Keycloak), les 4 Moodle, cloud, transport-u, teleenseignement, rber.bj, portail, ET forge, registre (Harbor — pushes CI), git (Gitea), support (Zammad), fichiers, backstage, ops (ArgoCD, interface web), docs, wiki, grafana. Coupure effective : **moins d'une minute** si le déroulé est préparé ;
+fenêtre réservée : 30 minutes.
 
 **Pourquoi tout doit basculer en même temps (lu dans la doc officielle du
 contrôleur) :** l'option ConfigMap `proxy-protocol` liste des sources ; dès
@@ -74,35 +73,44 @@ sans quoi ils échoueraient et marqueraient les backends morts.
 
 ## 1. Préparation (J-1, hors fenêtre, sans impact)
 
-### 1.1 — Préparer la configuration HAProxy modifiée
-Sur `rber-ldb-int-01`, préparer (sans l'appliquer) une copie du fichier où
-SEULES les deux lignes `server` des backends K8s changent :
-
+### 1.0 — Pré-vérification obligatoire : quelle adresse l'ingress voit-il ?
+La règle côté ingress liste la source autorisée à parler PROXY protocol
+(10.29.113.21). Si le cluster réécrit l'adresse source en route (SNAT du
+service LoadBalancer), l'ingress verrait une adresse de nœud au lieu de
+.21 — la règle ne s'appliquerait pas et tout casserait. On le vérifie
+AVANT, avec le journal du portail (qui affiche l'adresse vue par l'ingress) :
+```bash
+# depuis la VM 10.29.113.163 (passe par le HAProxy .21) :
+curl -sk -o /dev/null --resolve portal.rber.bj:443:10.29.113.21 "https://portal.rber.bj/?campus=uac"
+# depuis le bastion :
+kubectl -n captive-portal logs -l app=portal --tail=100 | grep campus_rejected | tail -1
 ```
-backend bk_k8s_ingress
-    mode http
-    balance roundrobin
-    option httpchk
-    http-check send meth GET uri /
-    http-check expect rstatus ^(2|3|4)[0-9][0-9]
-    server k8s-ingress 10.29.113.201:80 send-proxy-v2 check check-send-proxy inter 5s fall 3 rise 2
+- `"ip": "10.29.113.21"` → OK, la valeur de la ConfigMap (§ 1.2) est la bonne.
+- Toute autre adresse (nœud 10.29.113.x, 10.42.x.x) → STOP : le service
+  LoadBalancer réécrit la source ; il faut d'abord passer son
+  `externalTrafficPolicy` à `Local` (ou adapter la liste) — à revoir
+  avec IDADU TECH avant de fixer la date.
 
-backend bk_k8s_ingress_https
-    mode tcp
-    balance roundrobin
-    option ssl-hello-chk
-    timeout tunnel 86400s
-    timeout server 86400s
-    server k8s-ingress 10.29.113.201:443 send-proxy-v2 check check-send-proxy inter 5s fall 3 rise 2
-```
-(= ajout de `send-proxy-v2` et `check-send-proxy` sur chaque ligne server ;
-rien d'autre ne change dans le fichier.)
+### 1.1 — Le fichier HAProxy de la fenêtre (fourni, prêt)
+Fichier : `haproxy_FENETRE_PROXY_protocol.cfg`, établi à partir de la
+configuration de production actuelle. **Les 21 lignes `server` qui visent
+l'ingress (10.29.113.201)** — et pas seulement les deux backends du
+portail : forge, registre, gitea, support, fichiers, backstage, ops, docs,
+wiki, grafana (en 80 et 443) et bk_k8s_ingress(_https) — reçoivent
+`send-proxy-v2` et `check-send-proxy`. Rien d'autre ne change.
+
+Pourquoi toutes : la règle côté ingress s'applique à TOUTE connexion venant
+de .21. Une seule ligne oubliée = un service coupé après la fenêtre.
 
 ```bash
-sudo cp /etc/haproxy/haproxy.cfg /root/haproxy.cfg.proxyproto   # copie de travail
-# ... éditer les 2 lignes server comme ci-dessus ...
-sudo haproxy -c -f /root/haproxy.cfg.proxyproto                 # DOIT être valid
+sudo cp haproxy_FENETRE_PROXY_protocol.cfg /root/haproxy.cfg.proxyproto
+sudo haproxy -c -f /root/haproxy.cfg.proxyproto      # DOIT être valid
+diff /etc/haproxy/haproxy.cfg /root/haproxy.cfg.proxyproto | grep '^>' | grep -c send-proxy-v2
+#    attendu : 21
 ```
+Si la production a changé depuis le 20/11 (nouveau service ajouté),
+redemander le fichier à jour : toute nouvelle ligne vers .201 doit aussi
+porter `send-proxy-v2 check-send-proxy`.
 
 ### 1.2 — Préparer les deux commandes kubectl (bastion)
 ```bash
@@ -118,8 +126,7 @@ Vérifier le nom exact de la ConfigMap :
 `kubectl -n haproxy-controller get cm` (attendu : haproxy-kubernetes-ingress).
 
 ### 1.3 — Annonce
-Prévenir les équipes : interruption possible < 1 minute sur auth.rber.bj,
-les Moodle, cloud, transport-u, teleenseignement, rber.bj, à l'heure choisie
+Prévenir les équipes : interruption possible < 1 minute sur tous les services publiés via le cluster : auth.rber.bj (Keycloak), les 4 Moodle, cloud, transport-u, teleenseignement, rber.bj, portail, ET forge, registre (Harbor — pushes CI), git (Gitea), support (Zammad), fichiers, backstage, ops (ArgoCD, interface web), docs, wiki, grafana, à l'heure choisie
 (heure creuse recommandée : tôt le matin).
 
 ### 1.4 — Postes de contrôle pendant la fenêtre
@@ -148,13 +155,15 @@ toujours par paire).
 ## 3. Vérifications (dans l'ordre, toutes doivent passer)
 
 ```bash
-# 1. Les backends sont UP côté HAProxy (preuve que check-send-proxy marche)
-echo "show stat" | sudo socat stdio /run/haproxy/admin.sock | grep k8s-ingress | cut -d, -f1,2,18
-#    attendu : ...,k8s-ingress,UP  (les deux backends)
+# 1. TOUS les backends vers l'ingress sont UP (preuve que check-send-proxy marche)
+echo "show stat" | sudo socat stdio /run/haproxy/admin.sock | grep -E "k8s-ingress|haproxy-ingress|forge1|registre1" | cut -d, -f1,2,18
+#    attendu : UP partout (21 lignes) — aucun DOWN
 
 # 2. Les services existants répondent (jambe HTTPS/TCP)
 curl -sk -o /dev/null -w "auth: %{http_code}\n" https://auth.rber.bj/realms/RBERConnect/.well-known/openid-configuration
 curl -sk -o /dev/null -w "moodle: %{http_code}\n" https://elearning.uac.bj/
+curl -sk -o /dev/null -w "registre: %{http_code}\n" https://registre.rber.bj/v2/
+curl -sk -o /dev/null -w "ops: %{http_code}\n" https://ops.rber.bj/
 #    attendu : 200 (ou 30x pour moodle) — PAS de 400, PAS de timeout
 
 # 3. La jambe HTTP vit toujours (redirections connues + interception)
