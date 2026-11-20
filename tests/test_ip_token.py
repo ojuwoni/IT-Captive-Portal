@@ -35,12 +35,24 @@ def test_jeton_expire_rejete():
 
 
 # ------------------------------------------------------------ parcours
+class _FromIngress:
+    """Fait arriver les requetes de test depuis le pod de l'ingress."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            scope = dict(scope, client=(INGRESS, 40000))
+        await self.app(scope, receive, send)
+
+
 @pytest.fixture()
 def client(monkeypatch):
     fake = fakeredis.aioredis.FakeRedis(decode_responses=True)
     monkeypatch.setattr(main.authz.store, "_r", fake)
     monkeypatch.setattr(main.settings, "bounce_url", "")
-    return TestClient(main.app, client=(INGRESS, 40000), follow_redirects=False,
+    return TestClient(_FromIngress(main.app), follow_redirects=False,
                       base_url="https://portal.rber.bj")
 
 
