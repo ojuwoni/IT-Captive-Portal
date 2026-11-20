@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import ipaddress
+import ssl
+from pathlib import Path
 
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
@@ -120,3 +122,31 @@ def read_ip_token(secret: str, token: str, max_age: int) -> str | None:
         return ip
     except (BadSignature, ValueError, TypeError):
         return None
+
+
+# ---------------------------------------------------------------- TLS pfSense
+def pinned_tls_context(cert_file: str) -> ssl.SSLContext:
+    """Contexte TLS qui n'accepte QUE le certificat fourni.
+
+    Les pfSense presentent un certificat auto-signe, souvent sans l'adresse
+    IP dans ses noms. Plutot que de desactiver la verification (ce qui
+    exposerait la cle API a une interception), on epingle le certificat :
+    la verification reste obligatoire, la seule racine de confiance est ce
+    certificat, et le nom d'hote n'est pas compare (l'epinglage est plus
+    strict que lui).
+    """
+    ctx = ssl.create_default_context(cafile=cert_file)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_REQUIRED
+    # certificats auto-signes de pfSense : pas toujours conformes au mode strict
+    ctx.verify_flags &= ~getattr(ssl, "VERIFY_X509_STRICT", 0)
+    return ctx
+
+
+def pfsense_verify(campus_id: str, certs_dir: str, ca_bundle: str,
+                   verify_tls: bool):
+    """Parametre `verify` du client HTTP pour le pfSense d'un campus."""
+    pinned = Path(certs_dir) / f"{campus_id}.pem"
+    if pinned.is_file():
+        return pinned_tls_context(str(pinned))
+    return ca_bundle or verify_tls

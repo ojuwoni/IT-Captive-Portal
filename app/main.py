@@ -26,7 +26,7 @@ from .authz import AuthorizationService, errstr, jlog
 from .config import CampusConfig, CampusRouting, settings
 from .pfsense import MockPfSenseClient, RestV2Client
 from .security import (CampusValidationError, client_ip, make_ip_token,
-                       read_ip_token, resolve_campus)
+                       pfsense_verify, read_ip_token, resolve_campus)
 from .sessions import RateLimiter
 from .themes import ThemeRegistry
 
@@ -57,7 +57,9 @@ def make_client(campus: CampusConfig):
     """Fabrique du client pfSense. PFSENSE_MODE=mock pour le dev."""
     if settings.pfsense_mode == "mock":
         return _mock_clients.setdefault(campus.id, MockPfSenseClient())
-    verify: bool | str = settings.pfsense_ca_bundle or settings.pfsense_verify_tls
+    verify = pfsense_verify(campus.id, settings.pfsense_certs_dir,
+                            settings.pfsense_ca_bundle,
+                            settings.pfsense_verify_tls)
     return RestV2Client(
         base_url=campus.pfsense_url, api_key=_api_key(campus),
         alias_name=campus.pfsense_alias, verify=verify,

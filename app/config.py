@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     pfsense_verify_tls: bool = True
     pfsense_ca_bundle: str = ""       # CA interne RBER (chemin), sinon store systeme
     pfsense_timeout: float = 10.0
+    # Certificats epingles : <dossier>/<campus>.pem = LE certificat du pfSense
+    # de ce campus (auto-signe). S'il existe, c'est le seul certificat accepte
+    # pour ce campus ; sinon verification standard (pfsense_ca_bundle / systeme).
+    pfsense_certs_dir: str = "pfsense-certs"
 
     def keycloak_secret(self) -> str:
         if self.keycloak_client_secret_file:

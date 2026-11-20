@@ -22,16 +22,20 @@ spec:
                 - { name: REDIS_URL, value: "redis://redis-svc:6379/0" }
                 - { name: ROUTING_PATH, value: "/opt/captive-portal/config/routing.json" }
                 - { name: SECRETS_DIR, value: "/opt/captive-portal/secrets" }
+                - { name: PFSENSE_CERTS_DIR, value: "/opt/captive-portal/pfsense-certs" }
                 - { name: KEYCLOAK_ADMIN_CLIENT_SECRET_FILE, value: "/opt/captive-portal/kc/admin-secret" }
                 - { name: SECRET_KEY, value: "unused-for-reconciler" }
               volumeMounts:
                 - { name: routing, mountPath: /opt/captive-portal/config, readOnly: true }
                 - { name: pfsense-keys, mountPath: /opt/captive-portal/secrets, readOnly: true }
                 - { name: kc, mountPath: /opt/captive-portal/kc, readOnly: true }
+                - { name: pfsense-certs, mountPath: /opt/captive-portal/pfsense-certs, readOnly: true }
           volumes:
             - name: routing
               configMap: { name: campus-routing }
             - name: kc
               secret: { secretName: keycloak-reconciler }
+            - name: pfsense-certs
+              configMap: { name: pfsense-certs, optional: true }
             - name: pfsense-keys
               secret: { secretName: pfsense-keys }  # meme Secret unique que le portail

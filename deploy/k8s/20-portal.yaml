@@ -20,6 +20,7 @@ spec:
             - { name: REDIS_URL, value: "redis://redis-svc:6379/0" }
             - { name: ROUTING_PATH, value: "/opt/captive-portal/config/routing.json" }
             - { name: SECRETS_DIR, value: "/opt/captive-portal/secrets" }
+            - { name: PFSENSE_CERTS_DIR, value: "/opt/captive-portal/pfsense-certs" }
             - { name: KEYCLOAK_CLIENT_SECRET_FILE, value: "/opt/captive-portal/kc/client-secret" }
             - { name: SECRET_KEY, valueFrom: { secretKeyRef: { name: portal-secret-key, key: secret-key } } }
             # TRUSTED_PROXIES : relais connus = reseau des pods, les deux HAProxy
@@ -35,6 +36,7 @@ spec:
             - { name: pfsense-keys, mountPath: /opt/captive-portal/secrets, readOnly: true }
             - { name: kc, mountPath: /opt/captive-portal/kc, readOnly: true }
             - { name: themes, mountPath: /opt/captive-portal/themes, readOnly: true }
+            - { name: pfsense-certs, mountPath: /opt/captive-portal/pfsense-certs, readOnly: true }
           readinessProbe: { httpGet: { path: /health, port: 8000 }, periodSeconds: 10 }
           livenessProbe: { httpGet: { path: /health, port: 8000 }, initialDelaySeconds: 10, periodSeconds: 20 }
           resources:
@@ -47,6 +49,9 @@ spec:
           configMap: { name: portal-themes, optional: true }
         - name: kc
           secret: { secretName: keycloak-client }
+        - name: pfsense-certs
+          # un fichier <campus>.pem par site : le certificat epingle de son pfSense
+          configMap: { name: pfsense-certs, optional: true }
         - name: pfsense-keys
           # UN SEUL Secret pour tous les campus : une entree par site,
           # nommee comme le champ api_key_secret de routing.json.

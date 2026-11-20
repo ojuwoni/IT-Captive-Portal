@@ -30,7 +30,7 @@ class RestV2Client(PfSenseClient):
         base_url: str,
         api_key: str,
         alias_name: str = "authorized_clients",
-        verify: bool | str = True,
+        verify=True,  # bool, chemin de CA, ou ssl.SSLContext (certificat epingle)
         timeout: float = 10.0,
     ):
         self._base = base_url.rstrip("/")

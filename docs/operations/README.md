@@ -4,6 +4,7 @@
 |---|---|---|
 | `Dossier_fenetre_PROXY_protocol.md` | Exécution de la fenêtre PROXY protocol (dernier prérequis du pilote T-INT) : le pourquoi en langage simple, préparation J-1, déroulé minuté, vérifications, rollback | **Suspendu** — tentative du 20/11 annulée (rollback), remplacé par le jeton d'IP ; à reprendre plus tard avec l'équipe infra, voir `Jeton_IP.md` |
 | `Jeton_IP.md` | Comment le portail connaît l'adresse réelle du client sans PROXY protocol (option retenue le 21/11) | En service |
+| `Certificat_pfSense.md` | Épingler le certificat auto-signé d'un pfSense (à faire pour chaque site) | Procédure |
 | `Actions_Harris_banc_UAC.md` | Re-câblage du banc de test UAC vers la chaîne de production | Exécuté le 16/11/2026 (relevés conformes) |
 | `Audit_code_v1_IT-Captive-Portal.md` | Audit de la v1 (branche `ojuwoni`) : pourquoi la v2 est une réécriture | Référence historique |
 

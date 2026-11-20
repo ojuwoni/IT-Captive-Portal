@@ -54,6 +54,7 @@ l'environnement, un fichier `.env` en dev, ou les manifests K8s.
 | `PFSENSE_VERIFY_TLS` | `true` | Vérification TLS des API pfSense |
 | `PFSENSE_CA_BUNDLE` | — | CA interne RBER (chemin) — prioritaire |
 | `PFSENSE_TIMEOUT` | `10.0` | Timeout des appels API (s) |
+| `PFSENSE_CERTS_DIR` | `pfsense-certs` | Dossier des certificats épinglés (`<campus>.pem`). Voir `operations/Certificat_pfSense.md` |
 
 ### Réseau / fichiers
 | Variable | Défaut | Rôle |
