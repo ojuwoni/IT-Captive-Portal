@@ -122,3 +122,45 @@ def test_renvoi_http_si_configure(client, monkeypatch):
     # deja renvoye une fois (nb=1) : pas de boucle
     r = client.get("/?nb=1", headers=https())
     assert r.status_code == 200 and "ne provient pas" in r.text
+
+
+# ------------------------------------------------------------ sondes des appareils
+@pytest.mark.parametrize("host,path", [
+    ("connectivitycheck.gstatic.com", "/generate_204"),      # Android
+    ("www.googleapis.cn", "/generate_204"),                  # Android (variante)
+    ("captive.apple.com", "/hotspot-detect.html"),           # iOS / macOS
+    ("www.msftconnecttest.com", "/connecttest.txt"),         # Windows
+    ("firefox-portal-detection.com", "/success.txt"),        # Firefox
+    ("exemple.org", "/une/page/quelconque?x=1"),
+])
+def test_toutes_les_sondes_sont_redirigees(client, host, path):
+    # regression du 20/11 : seul « / » etait redirige, les sondes recevaient 404
+    r = client.get(f"http://{host}{path}", headers={
+        "host": host, "x-forwarded-for": f"{CLIENT}, {SNAT}"})
+    assert r.status_code == 302
+    assert r.headers["location"].startswith("https://portal.rber.bj/?campus=uac&t=")
+
+
+def test_sonde_en_head_redirigee(client):
+    r = client.head("http://captive.apple.com/hotspot-detect.html", headers={
+        "host": "captive.apple.com", "x-forwarded-for": f"{CLIENT}, {SNAT}"})
+    assert r.status_code == 302
+
+
+def test_health_du_cluster_non_redirige(client, monkeypatch):
+    async def ping():
+        return True
+    monkeypatch.setattr(main.redis, "ping", ping)
+    r = client.get("http://10.42.8.51:8000/health", headers={"host": "10.42.8.51:8000"})
+    assert r.status_code == 200
+
+
+def test_acme_d_un_autre_domaine_non_redirige(client):
+    r = client.get("http://autre.rber.bj/.well-known/acme-challenge/abc",
+                   headers={"host": "autre.rber.bj"})
+    assert r.status_code == 404
+
+
+def test_portail_en_direct_non_redirige(client):
+    r = client.get("/?campus=uac", headers=https())
+    assert r.status_code == 200

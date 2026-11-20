@@ -16,7 +16,8 @@ from pathlib import Path
 import redis.asyncio as aioredis
 from authlib.integrations.starlette_client import OAuth
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import (HTMLResponse, JSONResponse, PlainTextResponse,
+                               RedirectResponse)
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from starlette.middleware.sessions import SessionMiddleware
@@ -135,6 +136,37 @@ def error_page(theme_id: str, message: str, status: int = 400) -> HTMLResponse:
     return resp
 
 
+# ---------------------------------------------------------------- interception
+def _is_intercepted(request: Request) -> bool:
+    """Requete d'un client WiFi interceptee par le pfSense : son Host n'est
+    pas celui du portail. Vaut pour TOUS les chemins — les appareils sondent
+    /generate_204 (Android), /hotspot-detect.html (Apple),
+    /connecttest.txt (Windows)... pas seulement « / »."""
+    host = request.headers.get("host", "").split(":")[0].lower()
+    if not host or host == settings.public_host or "localhost" in host:
+        return False
+    path = request.url.path
+    # sondes du cluster (Host = IP du pod) et defis ACME d'autres domaines
+    return path != "/health" and not path.startswith("/.well-known/")
+
+
+@app.middleware("http")
+async def intercept_foreign_hosts(request: Request, call_next):
+    if not _is_intercepted(request):
+        return await call_next(request)
+    # Jambe HTTP : c'est ICI que l'IP reelle est connue. On la joint au
+    # lien sous forme de jeton signe, pour la jambe HTTPS qui suit.
+    ip = ip_of(request)
+    try:
+        found, _ = resolve_campus(None, ip, routing)
+        target = (f"{settings.public_base_url}/?campus={found.id}"
+                  f"&t={make_ip_token(SECRET, ip)}")
+    except CampusValidationError:
+        # nb=1 : « deja renvoye », evite une boucle de renvois
+        target = f"{settings.public_base_url}/?nb=1"
+    return RedirectResponse(target, status_code=302)
+
+
 # ---------------------------------------------------------------- routes
 @app.get("/health")
 async def health():
@@ -152,21 +184,10 @@ async def health():
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, campus: str | None = None,
                 t: str | None = None, nb: str | None = None):
-    host = request.headers.get("host", "").split(":")[0].lower()
-
-    # Sonde CNA ou trafic intercepte (jambe HTTP) : Host etranger -> 302 vers
-    # le portail. C'est ICI que l'IP reelle est connue : on la joint au lien
-    # sous forme de jeton signe, pour la jambe HTTPS qui suit.
-    if host and host != settings.public_host and "localhost" not in host:
-        ip = ip_of(request)
-        try:
-            found, _ = resolve_campus(None, ip, routing)
-            target = (f"{settings.public_base_url}/?campus={found.id}"
-                      f"&t={make_ip_token(SECRET, ip)}")
-        except CampusValidationError:
-            # nb=1 : « deja renvoye », evite une boucle de renvois
-            target = f"{settings.public_base_url}/?nb=1"
-        return RedirectResponse(target, status_code=302)
+    # Requete sans Host : health check du HAProxy externe (GET / HTTP/1.0).
+    # Reponse courte, sans journal (plusieurs par seconde).
+    if not request.headers.get("host"):
+        return PlainTextResponse("ok")
 
     ip = effective_ip(request, t)
     try:
@@ -178,7 +199,8 @@ async def index(request: Request, campus: str | None = None,
             return RedirectResponse(settings.bounce_url, status_code=302)
         # IP hors de tout subnet campus : visiteur externe (ou parametre
         # falsifie). Un selecteur serait une boucle inutile — page claire.
-        jlog("campus_rejected", ip=ip, param=campus, reason=exc.reason)
+        if campus or t:
+            jlog("campus_rejected", ip=ip, param=campus, reason=exc.reason)
         return render("out_of_network.html", "_default", client_ip=ip)
 
     existing = await authz.store.get(found.id, ip)
