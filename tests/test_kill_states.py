@@ -9,13 +9,15 @@ from app.pfsense.restv2 import RestV2Client
 from tests.test_logout import CLIENT, bench, connect, https  # noqa: F401
 
 
-def test_deconnexion_coupe_les_connexions_en_cours(bench):
+def test_deconnexion_coupe_les_connexions_en_cours(bench, monkeypatch):
+    monkeypatch.setattr(main.settings, "kill_states_on_revoke", True)
     pf = connect(bench)
     bench.get("/logout", headers=https())
     assert pf.alias == set() and pf.killed == [CLIENT]
 
 
 def test_echec_de_coupure_ne_bloque_pas_la_deconnexion(bench, monkeypatch):
+    monkeypatch.setattr(main.settings, "kill_states_on_revoke", True)
     pf = connect(bench)
 
     async def boom(ip):
