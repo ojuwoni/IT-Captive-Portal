@@ -88,5 +88,20 @@ class AuthorizationService:
         await client.apply()
         session = await self.store.get(campus.id, ip)
         await self.store.delete(campus.id, ip)
+        killed = await self.kill_states(campus, ip, client)
         jlog("revoke", campus=campus.id, ip=ip, reason=reason,
-             user=(session or {}).get("user"))
+             user=(session or {}).get("user"), states_killed=killed)
+
+    async def kill_states(self, campus: CampusConfig, ip: str,
+                          client: PfSenseClient | None = None) -> int | None:
+        """Coupe les connexions en cours de l'IP. Un echec ici ne doit pas
+        faire echouer le retrait (l'acces est deja ferme pour les nouvelles
+        connexions) : on le journalise. None = non fait."""
+        if not self._settings.kill_states_on_revoke:
+            return None
+        try:
+            return await (client or self.client_for(campus)).kill_states(ip)
+        except Exception as exc:
+            jlog("kill_states_error", campus=campus.id, ip=ip,
+                 error=errstr(exc))
+            return None

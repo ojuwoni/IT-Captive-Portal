@@ -11,6 +11,7 @@ class MockPfSenseClient(PfSenseClient):
         self.alias: set[str] = set()
         self.arp: dict[str, str] = dict(arp or {})
         self.applied = 0
+        self.killed: list[str] = []
         self._latency = latency
 
     async def _wait(self):
@@ -32,6 +33,11 @@ class MockPfSenseClient(PfSenseClient):
     async def apply(self) -> None:
         await self._wait()
         self.applied += 1
+
+    async def kill_states(self, ip: str) -> int:
+        await self._wait()
+        self.killed.append(ip)
+        return 1
 
     async def get_arp_table(self) -> dict[str, str]:
         await self._wait()

@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     ip_token_ttl: int = 300           # validite du jeton dans le lien (s)
     verified_ip_ttl: int = 900        # duree pendant laquelle la session s'en souvient (s)
     stale_session_grace: int = 30  # s ; cf. docs/CONFIGURATION.md
+    kill_states_on_revoke: bool = True  # couper les connexions en cours au retrait
     # Adresse HTTP ou renvoyer un client arrive directement en HTTPS sans
     # jeton, pour qu'il en obtienne un. Vide = pas de renvoi (page d'information).
     # Le nom doit pointer sur le HAProxy et NE PAS figurer dans host_known.

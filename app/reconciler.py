@@ -88,6 +88,10 @@ async def reconcile_campus(authz: AuthorizationService, redis,
                 changed = True
     if changed:
         await client.apply()
+        # apres l'application : couper les connexions deja ouvertes
+        for ips in removed.values():
+            for ip in ips:
+                await authz.kill_states(campus, ip, client)
 
     result = {"campus": campus.id, "alias_count": len(alias_ips),
               "orphans_removed": len(removed["orphan"]),

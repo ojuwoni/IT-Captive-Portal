@@ -44,6 +44,7 @@ l'environnement, un fichier `.env` en dev, ou les manifests K8s.
 | `IP_TOKEN_TTL` | `300` | Validité (s) du jeton d'IP placé dans le lien de redirection |
 | `VERIFIED_IP_TTL` | `900` | Durée (s) pendant laquelle la session se souvient de l'IP vérifiée |
 | `STALE_SESSION_GRACE` | `30` | Marge (s) après la connexion avant de considérer qu'une nouvelle interception prouve que le pfSense n'a plus l'adresse (la session en mémoire est alors effacée et la page de connexion réaffichée) |
+| `KILL_STATES_ON_REVOKE` | `true` | Couper les connexions déjà ouvertes d'une adresse quand elle est retirée de l'alias (déconnexion, expiration, réconciliateur). Exige le privilège `api-v2-firewall-states-delete` sur la clé API du pfSense |
 | `BOUNCE_URL` | vide | Adresse HTTP vers laquelle renvoyer un client arrivé directement en HTTPS sans jeton (ex. `http://captive.rber.bj/`). Le nom doit pointer sur le HAProxy et ne PAS figurer dans `host_known`. Vide = page d'information |
 | `MAC_CHECK_ENABLED` | `true` | Révoque si la MAC d'une IP autorisée change (bail DHCP réattribué) |
 | `IDLE_GRACE_CYCLES` | `4` | Cycles de réconciliation (5 min) d'absence ARP avant révocation pour inactivité (~20 min) ; `0` = désactivé |

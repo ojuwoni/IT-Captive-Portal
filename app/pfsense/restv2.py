@@ -13,9 +13,15 @@ api-docs/openapi.json, 29/10/2026) :
   - POST /api/v2/firewall/apply   (DIFFERE : repond applied:false ;
     on sonde GET /firewall/apply jusqu'a applied:true — releve T4 : ~1,6 s)
   - GET  /api/v2/diagnostics/arp_table  (cles ip_address / mac_address)
+  - DELETE /api/v2/firewall/states      (lu dans le code source du package,
+    21/11/2026 : supprime les etats qui correspondent au filtre fourni ;
+    SANS filtre -> refuse ; avec "all": true -> vide TOUTE la table.
+    On n'envoie donc jamais "all" et toujours un filtre sur une IP validee.)
 Reste a confirmer sur le pfSense reel (T4) : codes de reponse et latences.
 """
 from __future__ import annotations
+
+import ipaddress
 
 import httpx
 
@@ -114,6 +120,29 @@ class RestV2Client(PfSenseClient):
                     return
             raise PfSenseError(
                 f"apply non confirme apres {self.APPLY_POLL_TIMEOUT}s sur {self._base}")
+
+    KILL_MAX_ROUNDS = 5
+
+    async def kill_states(self, ip: str) -> int:
+        # Garde-fou : un filtre vide ou mal forme ne doit JAMAIS partir.
+        ip = str(ipaddress.ip_address(ip))
+        # Champ source : « ip:port » (TCP/UDP) ou « ip » seul (ICMP).
+        # « commence par ip: » et non « contient ip » : 10.24.1.2 ne doit
+        # pas attraper 10.24.1.20, ni les etats NAT d'autres clients.
+        filters = ({"source__startswith": f"{ip}:"}, {"source": ip})
+        killed = 0
+        async with self._client() as client:
+            for flt in filters:
+                for _ in range(self.KILL_MAX_ROUNDS):
+                    resp = await client.request(
+                        "DELETE", "/api/v2/firewall/states",
+                        json={**flt, "limit": 0})
+                    data = self._data(resp)
+                    count = len(data) if isinstance(data, list) else 0
+                    killed += count
+                    if count == 0:
+                        break
+        return killed
 
     async def get_arp_table(self) -> dict[str, str]:
         async with self._client() as client:

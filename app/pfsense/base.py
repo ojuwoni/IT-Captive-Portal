@@ -31,6 +31,14 @@ class PfSenseClient(ABC):
         """Applique les changements firewall en attente."""
 
     @abstractmethod
+    async def kill_states(self, ip: str) -> int:
+        """Coupe les connexions en cours de cette IP (table d'etats).
+
+        Retirer une IP de l'alias ne bloque que les NOUVELLES connexions :
+        celles deja ouvertes survivent (constate le 21/11). Retourne le
+        nombre d'etats supprimes."""
+
+    @abstractmethod
     async def get_arp_table(self) -> dict[str, str]:
         """Table ARP du firewall : {ip: mac}."""
 
