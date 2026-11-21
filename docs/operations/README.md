@@ -24,3 +24,10 @@ Conventions apprises sur ce cluster (à connaître pour tout déploiement) :
 - Les adresses des noeuds du cluster doivent figurer dans `TRUSTED_PROXIES`
   du portail (`deploy/k8s/20-portal.yaml`). A chaque ajout de noeud, completer
   la liste — sinon la detection du campus echoue par intermittence.
+- Les appels du portail vers l'API d'un pfSense sortent avec l'adresse du
+  noeud de travail qui heberge le pod (10.29.113.10 a .15 aujourd'hui : wrk-01
+  a 03, np-01 a 03 ; les noeuds de controle et etcd sont exclus par leurs
+  taints). Sur CHAQUE pfSense, la regle firewall vers le port de l'API et la
+  liste d'acces REST API doivent autoriser ces six adresses. A completer a
+  chaque ajout de noeud de travail (symptome sinon : « Denied ... REST API
+  access list violation » dans le journal du pfSense).

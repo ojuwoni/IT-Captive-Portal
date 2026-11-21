@@ -135,6 +135,32 @@ def effective_ip(request: Request, token: str | None = None) -> str:
     return seen
 
 
+async def own_authorization(request: Request):
+    """L'autorisation ouverte par CE navigateur, si elle est encore active.
+
+    A la connexion, le portail note dans la session (cookie signe) quelle
+    adresse il a ouverte et pour qui. Cela permet de la refermer plus tard
+    (deconnexion) meme quand le souvenir du jeton d'IP a expire. On ne s'en
+    sert jamais pour ouvrir un acces : seulement pour afficher l'etat et
+    fermer, et seulement si l'autorisation en place est bien celle de ce
+    meme utilisateur (l'adresse a pu etre reattribuee depuis).
+
+    Retourne (campus, ip, session) ou None.
+    """
+    auth = request.session.get("auth")
+    user = request.session.get("user")
+    if not isinstance(auth, dict) or not user:
+        return None
+    campus = routing.get(auth.get("campus"))
+    ip = auth.get("ip")
+    if campus is None or not ip:
+        return None
+    current = await authz.store.get(campus.id, ip)
+    if current and current.get("user") == user:
+        return campus, ip, current
+    return None
+
+
 def error_page(theme_id: str, message: str, status: int = 400) -> HTMLResponse:
     resp = render("error.html", theme_id, message=message)
     resp.status_code = status
@@ -198,6 +224,13 @@ async def index(request: Request, campus: str | None = None,
     try:
         found, inferred = resolve_campus(campus, ip, routing)
     except CampusValidationError as exc:
+        # Navigateur deja connecte qui revient sur le portail (sans jeton) :
+        # on lui montre son etat et le bouton de deconnexion.
+        own = await own_authorization(request)
+        if own:
+            own_campus, _, own_session = own
+            return render("already_connected.html", own_campus.theme,
+                          campus=own_campus, session=own_session)
         # Arrive directement en HTTPS, sans jeton : on le renvoie une fois
         # vers une adresse HTTP ou son IP reelle sera lue (si configuree).
         if settings.bounce_url and not nb and not t:
@@ -267,35 +300,45 @@ async def callback(request: Request):
                           "en echec. Signalez-le au support.", 502)
 
     request.session["user"] = username
+    request.session["auth"] = {"campus": found.id, "ip": ip}
     return RedirectResponse("/success", status_code=302)
 
 
 @app.get("/success", response_class=HTMLResponse)
 async def success(request: Request):
-    ip = effective_ip(request)
-    campus_id = request.session.get("campus")
-    found = routing.get(campus_id)
-    if found is None:
+    own = await own_authorization(request)
+    if own is None:
         return RedirectResponse("/", status_code=302)
-    session = await authz.store.get(found.id, ip)
-    if session is None:
-        return RedirectResponse("/", status_code=302)
+    found, _, session = own
     return render("success.html", found.theme, campus=found, session=session,
                   ttl_hours=settings.session_ttl // 3600)
 
 
 @app.get("/logout")
 async def logout(request: Request):
-    ip = effective_ip(request)
-    campus_id = request.session.get("campus")
-    found = routing.get(campus_id) or routing.find_by_ip(ip)
-    if found is not None:
+    """Referme l'acces ouvert par ce navigateur, puis oublie la session.
+
+    L'adresse a retirer est celle notee a la connexion (own_authorization),
+    pas celle lue sur la requete : en HTTPS le portail ne voit qu'un relais,
+    et le souvenir du jeton d'IP n'est garde que quelques minutes (defaut
+    constate le 21/11 : deconnexion sans effet apres 15 minutes).
+    """
+    own = await own_authorization(request)
+    theme_id = "_default"
+    done = False
+    if own:
+        found, ip, _ = own
+        theme_id = found.theme
         try:
             await authz.revoke(found, ip, reason="logout")
+            done = True
         except Exception as exc:
             jlog("revoke_error", ip=ip, campus=found.id, error=errstr(exc))
+            return error_page(found.theme,
+                              "La deconnexion n'a pas pu etre appliquee. "
+                              "Reessayez dans un instant.", 502)
     request.session.clear()
-    return RedirectResponse("/", status_code=302)
+    return render("logged_out.html", theme_id, done=done)
 
 
 @app.get("/status")
