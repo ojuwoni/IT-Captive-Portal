@@ -124,6 +124,20 @@ def read_ip_token(secret: str, token: str, max_age: int) -> str | None:
         return None
 
 
+def ip_token_issued_at(secret: str, token: str, max_age: int) -> float | None:
+    """Instant (epoch) d'emission d'un jeton valide, sinon None.
+
+    Un jeton n'est emis que par la jambe HTTP, donc quand le pfSense
+    intercepte le client : sa date prouve qu'a cet instant l'adresse
+    n'etait PAS dans l'alias."""
+    try:
+        _, ts = URLSafeTimedSerializer(secret, salt=_TOKEN_SALT).loads(
+            token, max_age=max_age, return_timestamp=True)
+        return ts.timestamp()
+    except (BadSignature, ValueError, TypeError):
+        return None
+
+
 # ---------------------------------------------------------------- TLS pfSense
 def pinned_tls_context(cert_file: str) -> ssl.SSLContext:
     """Contexte TLS qui n'accepte QUE le certificat fourni.

@@ -9,6 +9,7 @@ un 302 vers /?campus=<deduit de l'IP source>.
 """
 from __future__ import annotations
 
+import calendar
 import logging
 import time
 from pathlib import Path
@@ -25,7 +26,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from .authz import AuthorizationService, errstr, jlog
 from .config import CampusConfig, CampusRouting, settings
 from .pfsense import MockPfSenseClient, RestV2Client
-from .security import (CampusValidationError, client_ip, make_ip_token,
+from .security import (CampusValidationError, client_ip,
+                       ip_token_issued_at, make_ip_token,
                        pfsense_verify, read_ip_token, resolve_campus)
 from .sessions import RateLimiter
 from .themes import ThemeRegistry
@@ -161,6 +163,31 @@ async def own_authorization(request: Request):
     return None
 
 
+def _login_epoch(session: dict) -> float:
+    try:
+        return calendar.timegm(time.strptime(session.get("login_time", ""),
+                                             "%Y-%m-%dT%H:%M:%SZ"))
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def session_is_stale(session: dict, token: str | None) -> bool:
+    """Session enregistree alors que le pfSense intercepte encore ce client.
+
+    Un jeton emis APRES la connexion prouve que l'adresse n'est plus dans
+    l'alias (retrait manuel, alias restaure, pfSense reinitialise...). La
+    session est alors un souvenir faux : sans ce controle, le client voit
+    « Deja connecte » sans Internet jusqu'a l'expiration (constate le 21/11).
+    La marge couvre le delai d'application de l'alias juste apres la
+    connexion (sondes des appareils encore interceptees ~2 s)."""
+    if not token:
+        return False
+    issued = ip_token_issued_at(SECRET, token, settings.ip_token_ttl)
+    if issued is None:
+        return False
+    return issued > _login_epoch(session) + settings.stale_session_grace
+
+
 def error_page(theme_id: str, message: str, status: int = 400) -> HTMLResponse:
     resp = render("error.html", theme_id, message=message)
     resp.status_code = status
@@ -242,6 +269,13 @@ async def index(request: Request, campus: str | None = None,
         return render("out_of_network.html", "_default", client_ip=ip)
 
     existing = await authz.store.get(found.id, ip)
+    if existing and session_is_stale(existing, t):
+        jlog("stale_session", campus=found.id, ip=ip,
+             user=existing.get("user"), since=existing.get("login_time"))
+        await authz.store.delete(found.id, ip)
+        request.session.pop("auth", None)
+        request.session.pop("user", None)
+        existing = None
     if existing:
         return render("already_connected.html", found.theme,
                       campus=found, session=existing)
